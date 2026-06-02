@@ -1,0 +1,86 @@
+name: build-cajeta-llvm
+# Builds an LLVM+clang+lld toolchain matching cajeta's requirements and publishes
+# it as a GitHub Release asset. This file belongs in the FORK
+# (jklappenbach/cajeta-llvm — the renamed llvm-project fork), at
+# .github/workflows/build-cajeta-llvm.yml, on the `cajeta-spirv` branch. cajeta CI
+# then downloads the asset (see cajeta-ci-consume.yml).
+#
+# Build contract mirrors cajeta's live config (cpp/llvm-project/build/CMakeCache.txt):
+#   Release · RTTI=ON · assertions=OFF · static libs · targets X86;NVPTX;AMDGPU;SPIRV
+#   + projects clang;lld so the artifact bundles a version-matched clang-23 (cajeta
+#     compiles its runtime to bitcode via find_program(clang-${LLVM_VERSION_MAJOR})).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, e.g. cajeta-llvm-23-r1"
+        required: true
+  push:
+    tags: ["cajeta-llvm-*"]
+
+permissions:
+  contents: write          # needed to create the Release
+
+jobs:
+  build:
+    # RECOMMENDED: a self-hosted runner on a beefy box (your Strix Halo machine) —
+    # a from-scratch clang+llvm Release build can OOM at link on free GitHub runners.
+    runs-on: [self-hosted, linux, x64]
+    # If you have no self-hosted runner, swap the line above for a large GH runner:
+    #   runs-on: ubuntu-22.04
+    # and keep LLVM_PARALLEL_LINK_JOBS low (1) to avoid the linker OOM.
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake ccache clang lld zstd python3
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-llvm-${{ github.sha }}
+          restore-keys: ccache-llvm-
+
+      - name: Configure
+        run: |
+          cmake -G Ninja -S llvm -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLLVM_ENABLE_ASSERTIONS=OFF \
+            -DLLVM_ENABLE_RTTI=ON \
+            -DLLVM_TARGETS_TO_BUILD="X86;NVPTX;AMDGPU;SPIRV" \
+            -DLLVM_ENABLE_PROJECTS="clang;lld" \
+            -DLLVM_BUILD_LLVM_DYLIB=OFF -DLLVM_LINK_LLVM_DYLIB=OFF \
+            -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_DOCS=OFF \
+            -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
+            -DLLVM_USE_LINKER=lld \
+            -DLLVM_PARALLEL_LINK_JOBS=2 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_INSTALL_PREFIX="$PWD/llvm-install"
+
+      - name: Build + install
+        run: ninja -C build install
+
+      - name: Package
+        id: pack
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          NAME="cajeta-llvm-${TAG}-linux-x64.tar.zst"
+          tar --zstd -cf "$NAME" -C "$PWD" llvm-install
+          sha256sum "$NAME" > "$NAME.sha256"
+          echo "asset=$NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG"   >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.pack.outputs.tag }}
+          files: |
+            ${{ steps.pack.outputs.asset }}
+            ${{ steps.pack.outputs.asset }}.sha256

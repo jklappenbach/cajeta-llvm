@@ -773,6 +773,7 @@ static bool isOpcodeWithNoSideEffects(unsigned Opcode) {
   case SPIRV::OpTypeCooperativeMatrixNV:
   case SPIRV::OpTypeCooperativeMatrixKHR:
   case SPIRV::OpTypeRayQueryKHR:
+  case SPIRV::OpTypeAccelerationStructureKHR:
     return true;
   default:
     return false;

@@ -215,6 +215,8 @@ def OpTypeCooperativeMatrixKHR: Op<4456, (outs TYPE:$res),
                   "$res = OpTypeCooperativeMatrixKHR $compType $scope $rows $cols $use">;
 def OpTypeRayQueryKHR: Op<4472, (outs TYPE:$res), (ins),
                   "$res = OpTypeRayQueryKHR">;
+def OpTypeAccelerationStructureKHR: Op<5341, (outs TYPE:$res), (ins),
+                  "$res = OpTypeAccelerationStructureKHR">;
 
 // 3.42.7 Constant-Creation Instructions
 

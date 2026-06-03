@@ -1811,6 +1811,7 @@ def : BuiltinType<"spirv.SampledImage", OpTypeSampledImage>;
 def : BuiltinType<"spirv.Pipe", OpTypePipe>;
 def : BuiltinType<"spirv.CooperativeMatrixKHR", OpTypeCooperativeMatrixKHR>;
 def : BuiltinType<"spirv.RayQueryKHR", OpTypeRayQueryKHR>;
+def : BuiltinType<"spirv.AccelerationStructureKHR", OpTypeAccelerationStructureKHR>;
 
 //===----------------------------------------------------------------------===//
 // Class matching an OpenCL builtin type name to an equivalent SPIR-V

@@ -35,15 +35,22 @@ jobs:
           # ACTIVE — the only leg needed to unblock development + on-device testing.
           - host: linux-x64
             runs-on: [self-hosted, linux, x64]   # Strix Halo. No self-hosted box?
-            #          ^ swap for: ubuntu-22.04   # (slow; keep LLVM_PARALLEL_LINK_JOBS=1 to avoid link OOM)
+            #          ^ swap for: ubuntu-22.04   # (slow; keep link_jobs: 1 to avoid link OOM)
             asset_os: linux-x64
+            link_jobs: 2
+          # linux-arm64 — release artifact AND Jetson Orin / cradle (arm64). Builds on
+          # a GitHub-hosted ARM runner; the apt dep-install + tar/package steps below
+          # are Linux-generic so they cover this leg as-is. link_jobs: 1 because the
+          # free hosted runner OOMs at LLVM link with more. fail-fast:false keeps a
+          # slow/failed arm build from blocking the linux-x64 leg. NOTE: only builds
+          # on the NEXT tag push (won't retroactively join an already-cut release).
+          - host: linux-arm64
+            runs-on: ubuntu-24.04-arm
+            asset_os: linux-arm64
+            link_jobs: 1
           # ---- Remaining legs mirror release.yml — uncomment per host when needed. ----
-          # NOTE: the apt-based dep-install + tar steps below are Linux-only; the mac
-          # (brew) and Windows (MSYS2, .zip, mingw-w64) legs need their own
-          # dep-install/package steps mirroring release.yml before enabling.
-          # - host: linux-arm64                  # also serves Jetson Orin / cradle (arm64)
-          #   runs-on: ubuntu-24.04-arm
-          #   asset_os: linux-arm64
+          # NOTE: the mac (brew) and Windows (MSYS2, .zip, mingw-w64) legs need their
+          # own dep-install/package steps mirroring release.yml before enabling.
           # - host: macos-arm64
           #   runs-on: macos-14
           #   asset_os: macos-arm64
@@ -83,7 +90,7 @@ jobs:
             -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_DOCS=OFF \
             -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
             -DLLVM_USE_LINKER=lld \
-            -DLLVM_PARALLEL_LINK_JOBS=2 \
+            -DLLVM_PARALLEL_LINK_JOBS=${{ matrix.link_jobs }} \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_INSTALL_PREFIX="$PWD/llvm-install"

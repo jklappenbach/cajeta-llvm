@@ -217,6 +217,14 @@ def OpTypeRayQueryKHR: Op<4472, (outs TYPE:$res), (ins),
                   "$res = OpTypeRayQueryKHR">;
 def OpTypeAccelerationStructureKHR: Op<5341, (outs TYPE:$res), (ins),
                   "$res = OpTypeAccelerationStructureKHR">;
+def OpRayQueryInitializeKHR: Op<4473, (outs),
+                  (ins ID:$rq, ID:$accel, ID:$flags, ID:$mask, ID:$origin, ID:$tmin, ID:$dir, ID:$tmax),
+                  "OpRayQueryInitializeKHR $rq $accel $flags $mask $origin $tmin $dir $tmax">;
+def OpRayQueryProceedKHR: Op<4477, (outs ID:$res), (ins TYPE:$resType, ID:$rq),
+                  "$res = OpRayQueryProceedKHR $resType $rq">;
+def OpRayQueryGetIntersectionTypeKHR: Op<4479, (outs ID:$res),
+                  (ins TYPE:$resType, ID:$rq, ID:$intersection),
+                  "$res = OpRayQueryGetIntersectionTypeKHR $resType $rq $intersection">;
 
 // 3.42.7 Constant-Creation Instructions
 

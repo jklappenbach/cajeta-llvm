@@ -225,6 +225,9 @@ def OpRayQueryProceedKHR: Op<4477, (outs ID:$res), (ins TYPE:$resType, ID:$rq),
 def OpRayQueryGetIntersectionTypeKHR: Op<4479, (outs ID:$res),
                   (ins TYPE:$resType, ID:$rq, ID:$intersection),
                   "$res = OpRayQueryGetIntersectionTypeKHR $resType $rq $intersection">;
+def OpRayQueryGetIntersectionPrimitiveIndexKHR: Op<6023, (outs ID:$res),
+                  (ins TYPE:$resType, ID:$rq, ID:$intersection),
+                  "$res = OpRayQueryGetIntersectionPrimitiveIndexKHR $resType $rq $intersection">;
 
 // 3.42.7 Constant-Creation Instructions
 

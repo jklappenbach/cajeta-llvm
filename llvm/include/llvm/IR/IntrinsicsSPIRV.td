@@ -370,4 +370,9 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
     : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty]>;
   def int_spv_ray_query_get_intersection_type
     : Intrinsic<[llvm_i32_ty], [llvm_ptr_ty, llvm_i32_ty]>;
+  // The primitive (AABB / triangle) index of the candidate/committed intersection
+  // — lets a kernel recover which indexed datum a ray-query candidate hit (the
+  // RTNN exact-distance refinement step). Args: rq ptr, intersection (0/1).
+  def int_spv_ray_query_get_intersection_primitive_index
+    : Intrinsic<[llvm_i32_ty], [llvm_ptr_ty, llvm_i32_ty]>;
 }

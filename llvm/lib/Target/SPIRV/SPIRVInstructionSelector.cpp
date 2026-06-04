@@ -4731,6 +4731,10 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
     return selectOpWithSrcs(ResVReg, ResType, I,
                             {I.getOperand(2).getReg(), I.getOperand(3).getReg()},
                             SPIRV::OpRayQueryGetIntersectionTypeKHR);
+  case Intrinsic::spv_ray_query_get_intersection_primitive_index:
+    return selectOpWithSrcs(ResVReg, ResType, I,
+                            {I.getOperand(2).getReg(), I.getOperand(3).getReg()},
+                            SPIRV::OpRayQueryGetIntersectionPrimitiveIndexKHR);
   case Intrinsic::spv_unref_global:
   case Intrinsic::spv_init_global: {
     MachineInstr *MI = MRI->getVRegDef(I.getOperand(1).getReg());

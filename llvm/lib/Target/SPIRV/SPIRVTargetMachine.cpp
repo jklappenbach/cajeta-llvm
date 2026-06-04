@@ -69,6 +69,7 @@ extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeSPIRVTarget() {
   initializeSPIRVRegularizerLegacyPass(PR);
   initializeSPIRVPreLegalizerPass(PR);
   initializeSPIRVPostLegalizerPass(PR);
+  initializeSPIRVFixupMergePlacementPass(PR);
   initializeSPIRVMergeRegionExitTargetsLegacyPass(PR);
   initializeSPIRVEmitIntrinsicsPass(PR);
   initializeSPIRVPrepareFunctionsLegacyPass(PR);
@@ -149,6 +150,11 @@ FunctionPass *SPIRVPassConfig::createTargetRegisterAllocator(bool) {
 // A place to disable passes that may break CFG.
 void SPIRVPassConfig::addMachineSSAOptimization() {
   TargetPassConfig::addMachineSSAOptimization();
+  // MachineCSE (and other SSA-opt passes just added above) can common a value
+  // into a loop/selection header and place it *after* that block's OpLoopMerge /
+  // OpSelectionMerge, violating SPIR-V's "merge immediately precedes the branch"
+  // rule. Re-seat any displaced merge right afterwards, while still in SSA form.
+  addPass(createSPIRVFixupMergePlacementPass());
 }
 
 // Disable passes that break from assuming no virtual registers exist.

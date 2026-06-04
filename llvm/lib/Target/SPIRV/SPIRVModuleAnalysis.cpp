@@ -155,9 +155,26 @@ void SPIRVModuleAnalysis::setBaseInfo(const Module &M) {
     MAI.Mem =
         static_cast<SPIRV::MemoryModel::MemoryModel>(getMetadataUInt(MemMD, 1));
   } else {
-    // TODO: Add support for VulkanMemoryModel.
-    MAI.Mem = ST->isShader() ? SPIRV::MemoryModel::GLSL450
-                             : SPIRV::MemoryModel::OpenCL;
+    // Cooperative matrix under the Shader environment mandates the Vulkan memory
+    // model: spirv-val rejects a module that declares both the Shader and
+    // CooperativeMatrixKHR capabilities without VulkanMemoryModel. Detect the
+    // cooperative-matrix intrinsics in the module and select the Vulkan memory
+    // model (operand value 3 -> requires the VulkanMemoryModelKHR capability and
+    // the SPV_KHR_vulkan_memory_model extension, both added below); otherwise
+    // keep GLSL450 for shaders. (Mixing cooperative matrix with workgroup
+    // barriers would also need Vulkan-model barrier scopes — a later concern.)
+    bool UsesCoopMatrix = false;
+    for (const Function &F : M)
+      if (F.getName().starts_with("llvm.spv.cooperative.matrix.")) {
+        UsesCoopMatrix = true;
+        break;
+      }
+    // TODO: Add general support for VulkanMemoryModel.
+    if (ST->isShader())
+      MAI.Mem = UsesCoopMatrix ? SPIRV::MemoryModel::VulkanKHR
+                               : SPIRV::MemoryModel::GLSL450;
+    else
+      MAI.Mem = SPIRV::MemoryModel::OpenCL;
     if (MAI.Mem == SPIRV::MemoryModel::OpenCL) {
       unsigned PtrSize = ST->getPointerSize();
       MAI.Addr = PtrSize == 32   ? SPIRV::AddressingModel::Physical32

@@ -445,6 +445,7 @@ private:
                              MachineInstr &I) const;
   bool selectImageWriteIntrinsic(MachineInstr &I) const;
   bool selectRayQueryInitialize(MachineInstr &I) const;
+  bool selectCoopMatrixStore(MachineInstr &I) const;
   bool selectResourceGetPointer(Register &ResVReg, SPIRVTypeInst ResType,
                                 MachineInstr &I) const;
   bool selectPushConstantGetPointer(Register &ResVReg, SPIRVTypeInst ResType,
@@ -1600,6 +1601,18 @@ bool SPIRVInstructionSelector::selectRayQueryInitialize(MachineInstr &I) const {
   // rq (variable ptr), accel, rayFlags, cullMask, origin, tMin, dir, tMax.
   auto MIB = BuildMI(*I.getParent(), I, I.getDebugLoc(),
                      TII.get(SPIRV::OpRayQueryInitializeKHR));
+  for (unsigned i = 1; i < I.getNumOperands(); ++i)
+    MIB.addUse(I.getOperand(i).getReg());
+  MIB.constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+bool SPIRVInstructionSelector::selectCoopMatrixStore(MachineInstr &I) const {
+  // Void side-effecting G_INTRINSIC: operand 0 = intrinsic id, operands 1.. =
+  // pointer, matrix, memory_layout (<id> const), stride (<id> const).
+  // OpCooperativeMatrixStoreKHR has no result/result-type.
+  auto MIB = BuildMI(*I.getParent(), I, I.getDebugLoc(),
+                     TII.get(SPIRV::OpCooperativeMatrixStoreKHR));
   for (unsigned i = 1; i < I.getNumOperands(); ++i)
     MIB.addUse(I.getOperand(i).getReg());
   MIB.constrainAllUses(TII, TRI, RBI);
@@ -4735,6 +4748,28 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
     return selectOpWithSrcs(ResVReg, ResType, I,
                             {I.getOperand(2).getReg(), I.getOperand(3).getReg()},
                             SPIRV::OpRayQueryGetIntersectionPrimitiveIndexKHR);
+  case Intrinsic::spv_cooperative_matrix_load:
+    // result = OpCooperativeMatrixLoadKHR ptr memory_layout stride
+    return selectOpWithSrcs(
+        ResVReg, ResType, I,
+        {I.getOperand(2).getReg(), I.getOperand(3).getReg(),
+         I.getOperand(4).getReg()},
+        SPIRV::OpCooperativeMatrixLoadKHR);
+  case Intrinsic::spv_cooperative_matrix_store:
+    return selectCoopMatrixStore(I);
+  case Intrinsic::spv_cooperative_matrix_muladd:
+    // result = OpCooperativeMatrixMulAddKHR A B C  (no operands literal: the
+    // signedness mask is for integer matrices; float matmul omits it, valid).
+    return selectOpWithSrcs(
+        ResVReg, ResType, I,
+        {I.getOperand(2).getReg(), I.getOperand(3).getReg(),
+         I.getOperand(4).getReg()},
+        SPIRV::OpCooperativeMatrixMulAddKHR);
+  case Intrinsic::spv_cooperative_matrix_splat:
+    // result = OpCompositeConstruct scalar  (single-scalar construct broadcasts
+    // across the matrix — the zero/identity accumulator).
+    return selectOpWithSrcs(ResVReg, ResType, I, {I.getOperand(2).getReg()},
+                            SPIRV::OpCompositeConstruct);
   case Intrinsic::spv_unref_global:
   case Intrinsic::spv_init_global: {
     MachineInstr *MI = MRI->getVRegDef(I.getOperand(1).getReg());

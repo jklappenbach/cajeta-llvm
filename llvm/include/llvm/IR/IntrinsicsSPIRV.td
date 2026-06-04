@@ -375,4 +375,25 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
   // RTNN exact-distance refinement step). Args: rq ptr, intersection (0/1).
   def int_spv_ray_query_get_intersection_primitive_index
     : Intrinsic<[llvm_i32_ty], [llvm_ptr_ty, llvm_i32_ty]>;
+
+  // SPV_KHR_cooperative_matrix operations under the Vulkan/Shader flavor. The
+  // KHR builtin (__spirv_*) path is isShader()-gated off (OpenCL-only), so the
+  // Shader flavor reaches these ops through llvm.spv intrinsics + GlobalISel
+  // selection (the texture / ray-query pattern). The matrix value itself is the
+  // opaque target("spirv.CooperativeMatrixKHR", elem, scope, rows, cols, use)
+  // type, carried as llvm_any_ty (overloaded/mangled per concrete shape).
+  //
+  // load:   result = OpCooperativeMatrixLoadKHR  ptr layout stride
+  // store:           OpCooperativeMatrixStoreKHR ptr matrix layout stride
+  // muladd: result = OpCooperativeMatrixMulAddKHR A B C  (float: no operands lit)
+  // splat:  result = OpCompositeConstruct        scalar  (broadcast accumulator)
+  // layout/stride are <id> operands (constants -> OpConstant), not inline imms.
+  def int_spv_cooperative_matrix_load
+    : Intrinsic<[llvm_any_ty], [llvm_anyptr_ty, llvm_i32_ty, llvm_i32_ty]>;
+  def int_spv_cooperative_matrix_store
+    : Intrinsic<[], [llvm_anyptr_ty, llvm_any_ty, llvm_i32_ty, llvm_i32_ty]>;
+  def int_spv_cooperative_matrix_muladd
+    : Intrinsic<[llvm_any_ty], [llvm_any_ty, llvm_any_ty, llvm_any_ty]>;
+  def int_spv_cooperative_matrix_splat
+    : Intrinsic<[llvm_any_ty], [llvm_any_ty]>;
 }

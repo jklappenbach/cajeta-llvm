@@ -362,6 +362,14 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
   def int_spv_resource_store_2d
     : DefaultAttrsIntrinsic<[], [llvm_any_ty, llvm_v2i32_ty, llvm_anyvector_ty]>;
 
+  // Read a value from a 2-D storage image at integer coordinate (x, y).
+  // The 2-D counterpart of load_typedbuffer (which takes a scalar index);
+  // the coordinate is a 2-component integer vector. Lowers to OpImageRead
+  // (Sampled=2 storage image); the result is the requested type (a scalar
+  // result is read as a vec4 then component-extracted). (cajeta Image2D.load.)
+  def int_spv_resource_load_2d
+    : DefaultAttrsIntrinsic<[llvm_any_ty], [llvm_any_ty, llvm_v2i32_ty]>;
+
   // Memory aliasing intrinsics
   def int_spv_assign_aliasing_decoration : Intrinsic<[], [llvm_any_ty, llvm_i32_ty, llvm_metadata_ty], [ImmArg<ArgIndex<1>>]>;
 

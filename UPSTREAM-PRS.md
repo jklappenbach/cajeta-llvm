@@ -6,6 +6,18 @@ Vulkan backend depends on. They are intended for upstream submission to
 large change. This file tracks each commit, the PR it belongs to, and its
 upstream-readiness. **We file the PRs once the XPU work is settled.**
 
+**Test status (all 5 ready):** every PR has a passing SPIR-V lit test
+(`llc | FileCheck`, + `spirv-val` where applicable), verified locally with the
+fork's `llc`/`FileCheck`/`spirv-val`:
+
+| PR | code commit(s) | lit test(s) | test-fix commit (squash in) |
+|----|----------------|-------------|-----------------------------|
+| 1 | `b1d0409`,`0743ee9`,`436a7fd`,`4dfa49b` | `extensions/SPV_KHR_ray_query/{ray_query_ops,ray_query_type,ray_query_kernel,acceleration_structure_type}.ll` | — |
+| 2 | `66b561c` | `extensions/SPV_KHR_cooperative_matrix/cooperative_matrix_{ops,type}_vulkan.ll` | `927a0a8` (add missing `+SPV_KHR_vulkan_memory_model`) |
+| 3 | `40fccdd` | `structurizer/fixup-merge-placement.mir` | — |
+| 4 | `2849c53` | `pointers/type-deduce-global-array-undef.ll` | `014276d` |
+| 5 | `6114125` | `extensions/SPV_KHR_cooperative_matrix/cooperative_matrix_workgroup_source.ll` | `f1b183e` (test + a store access-chain ordering fix) |
+
 To list our own (non-upstream) commits on the SPIR-V target:
 
 ```sh
@@ -113,11 +125,21 @@ pass through untouched.
 
 ---
 
-## Filing checklist (when XPU settles)
+## Filing checklist
 
-1. Rebase the branch on current `llvm/main`.
-2. For each PR: split into its own branch off `main`, add SPIR-V lit tests,
-   ensure `check-llvm-codegen-spirv` passes.
-3. Order: PR 3, PR 4, PR 5 (independent bugfixes; PR 5 is most natural after
-   PR 4) first, then PR 1 / PR 2 (extension features).
-4. Open PRs with the reproducers above; link related upstream coop-matrix work.
+Tests are done (table above), so the remaining work is mechanical packaging onto
+current `llvm/main`. This needs a GitHub fork of `llvm/llvm-project` and `gh`
+auth; it is an outward-facing step, so confirm before pushing.
+
+1. `git remote add upstream https://github.com/llvm/llvm-project` and fetch; the
+   fork branch is on an older LLVM base, so each PR is recreated on top of `main`.
+2. For each PR, create a branch off `upstream/main` and cherry-pick its code
+   commit(s) **plus** the squash-in test commit from the table (combine into one
+   commit per PR, code + lit test together). Resolve any rebase conflicts (the
+   SPIR-V backend may have moved upstream).
+3. `ninja check-llvm-codegen-spirv` on each branch (needs a configured build with
+   the LLVM test suite enabled — this fork build has no lit site config).
+4. Order: PR 3, PR 4, PR 5 (independent bugfixes; PR 5 after PR 4) first, then
+   PR 1 / PR 2 (extension features). Push each branch to your fork and open the PR
+   with the reproducer / rationale above; link any related in-flight upstream
+   coop-matrix work.

@@ -164,6 +164,10 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
   def int_spv_wave_product : DefaultAttrsIntrinsic<[llvm_any_ty], [LLVMMatchType<0>], [IntrConvergent, IntrNoMem]>;
   def int_spv_wave_is_first_lane : DefaultAttrsIntrinsic<[llvm_i1_ty], [], [IntrConvergent]>;
   def int_spv_wave_readlane : DefaultAttrsIntrinsic<[llvm_any_ty], [LLVMMatchType<0>, llvm_i32_ty], [IntrConvergent, IntrNoMem]>;
+  // Subgroup rotate (SPV_KHR_subgroup_rotate): rotate `value` across lanes by a
+  // signed lane delta -> OpGroupNonUniformRotateKHR (Subgroup scope). The
+  // __spirv builtin path is OpenCL-only; this reaches it from the Shader flavor.
+  def int_spv_subgroup_rotate : DefaultAttrsIntrinsic<[llvm_any_ty], [LLVMMatchType<0>, llvm_i32_ty], [IntrConvergent, IntrNoMem]>;
   def int_spv_wave_get_lane_count
       : DefaultAttrsIntrinsic<[llvm_i32_ty], [], [IntrConvergent]>;
   def int_spv_wave_prefix_sum : DefaultAttrsIntrinsic<[llvm_any_ty], [LLVMMatchType<0>], [IntrConvergent, IntrNoMem]>;

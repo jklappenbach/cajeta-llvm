@@ -5250,6 +5250,13 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
   case Intrinsic::spv_wave_readlane:
     return selectWaveOpInst(ResVReg, ResType, I,
                             SPIRV::OpGroupNonUniformShuffle);
+  case Intrinsic::spv_subgroup_rotate:
+    // result = OpGroupNonUniformRotateKHR type Subgroup value delta. The
+    // __spirv builtin path is OpenCL-only; this reaches the op from the Shader
+    // flavor. selectWaveOpInst prepends the Subgroup scope, then appends the
+    // intrinsic operands (value, delta) — exactly the op's operand order.
+    return selectWaveOpInst(ResVReg, ResType, I,
+                            SPIRV::OpGroupNonUniformRotateKHR);
   case Intrinsic::spv_wave_prefix_sum:
     return selectWaveExclusiveScanSum(ResVReg, ResType, I);
   case Intrinsic::spv_wave_prefix_product:

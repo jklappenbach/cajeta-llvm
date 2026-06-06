@@ -356,6 +356,12 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
   def int_spv_resource_store_typedbuffer
     : DefaultAttrsIntrinsic<[], [llvm_any_ty, llvm_i32_ty, llvm_anyvector_ty]>;
 
+  // Write a value to a 2-D storage image at integer coordinate (x, y).
+  // Like store_typedbuffer it translates directly to a single OpImageWrite,
+  // but the coordinate is a 2-component integer vector (cajeta Image2D.store).
+  def int_spv_resource_store_2d
+    : DefaultAttrsIntrinsic<[], [llvm_any_ty, llvm_v2i32_ty, llvm_anyvector_ty]>;
+
   // Memory aliasing intrinsics
   def int_spv_assign_aliasing_decoration : Intrinsic<[], [llvm_any_ty, llvm_i32_ty, llvm_metadata_ty], [ImmArg<ArgIndex<1>>]>;
 

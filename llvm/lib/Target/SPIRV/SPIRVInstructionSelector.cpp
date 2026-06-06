@@ -5291,6 +5291,9 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
   case Intrinsic::spv_resource_store_typedbuffer: {
     return selectImageWriteIntrinsic(I);
   }
+  case Intrinsic::spv_resource_store_2d: {
+    return selectImageWriteIntrinsic(I);
+  }
   case Intrinsic::spv_resource_load_typedbuffer: {
     return selectReadImageIntrinsic(ResVReg, ResType, I);
   }

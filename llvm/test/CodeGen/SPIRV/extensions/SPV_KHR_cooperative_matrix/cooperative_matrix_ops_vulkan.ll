@@ -12,7 +12,7 @@
 ; Text-emission check (FileCheck only); the spirv-val-clean, descriptor-bound
 ; compute kernel is increment CM3.
 
-; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_cooperative_matrix %s -o - | FileCheck %s
+; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_KHR_vulkan_memory_model %s -o - | FileCheck %s
 
 ; CHECK-DAG: OpCapability CooperativeMatrixKHR
 ; CHECK-DAG: OpExtension "SPV_KHR_cooperative_matrix"

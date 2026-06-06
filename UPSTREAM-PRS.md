@@ -125,6 +125,28 @@ pass through untouched.
 
 ---
 
+## Upstream policy + final PR structure (verified against current llvm/main)
+
+Per `llvm/docs/GitHub.rst`: the monorepo uses **squash-merge only** (one commit per
+PR), and **stacked PRs are the official mechanism** for landing dependent changes.
+Without commit access we use the *"two PRs with a `Depends on #X` note"* form (push
+branches to our fork `jklappenbach/cajeta-llvm`, open against `llvm/llvm-project`).
+LLVM prefers small **independent** changes, so unrelated features stay independent;
+only genuine dependencies are stacked.
+
+Review branches built off `upstream/main`, each verified (applies clean + compiles +
+lit tests pass against current `llvm/main`):
+
+| PR | branch | structure |
+|----|--------|-----------|
+| 3 | `pr/spirv-fixup-merge-placement` | independent |
+| 4 | `pr/spirv-global-array-undef-type` | independent |
+| 1 | `pr/spirv-ray-query` | independent (5 commits) |
+| 2 | `pr/spirv-coopmatrix-vulkan-flavor` | independent — PR-1 textual coupling (`IntrinsicsSPIRV.td` + `selectIntrinsic` switch) resolved out; verified 0 ray-query leakage |
+| 5 | `pr/spirv-coopmatrix-aggregate-ptr` | **stacked**: depends on PR 2 (modifies its coop selection) + PR 4 (test needs the array typing). File with `Depends on #PR2, #PR4`; first 2 commits are the deps |
+
+PR 1, 2, 3, 4 land in any order; PR 5 lands after PR 2 + PR 4.
+
 ## Filing checklist
 
 Tests are done (table above), so the remaining work is mechanical packaging onto

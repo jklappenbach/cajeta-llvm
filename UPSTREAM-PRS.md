@@ -87,26 +87,37 @@ The fix records the concrete declared value type for every global.
   `OpTypeArray` / indexed `OpAccessChain`; this is an independent bugfix and can
   land early.
 
+## PR 5 — Access-chain aggregate pointers to element 0 for cooperative matrix load/store
+
+Bugfix (depends conceptually on PR 4): `OpCooperativeMatrixLoad/StoreKHR` require
+the Pointer to point to a scalar/vector (the tile element). A workgroup-shared
+array tile reaches the selector as a pointer to the whole `[N x T]` array — in
+opaque-pointer IR `&arr[0]` is the same SSA value as `&arr`, and a zero-index
+element GEP is simplified back to the array base in SPIRVEmitIntrinsics — so the
+op was emitted with an array pointer (spirv-val: "Pointer's Type must be a scalar
+or vector type"). The selection now access-chains an aggregate pointer to element
+0; already-element-typed pointers (StorageBuffer / dynamic-offset access chains)
+pass through untouched.
+
+| commit | summary |
+|--------|---------|
+| `6114125dc940cf...` (cajeta-spirv) | [SPIR-V] Access-chain aggregate pointers to element 0 for cooperative matrix load/store |
+
+- **Status:** in fork; verified with `llc` + `spirv-val` on a Workgroup-tile
+  cooperative-matrix load, and a full LDS-staged GEMM (CoopStage copy → barrier →
+  load(Shared) → mma) computing **bit-exact on RADV / gfx1151**. 27-test cajeta
+  regression sweep, no regressions. Together with PR 4 this makes LDS-staged
+  cooperative-matrix GEMM work on Vulkan (the `XPU-N04` gate is removed).
+- **Upstream prep:** SPIR-V backend lit test asserting an `OpAccessChain` to
+  element 0 precedes `OpCooperativeMatrixLoadKHR` for a Workgroup-array pointer.
+
 ---
-
-## Pending (not yet a PR — under investigation)
-
-- **Cooperative-matrix load/store from Workgroup storage at a constant element
-  offset.** After PR 4, Workgroup-array *staging* lowers correctly, but an
-  `OpCooperativeMatrixLoadKHR` whose pointer is `&sharedTile[0]` (constant offset)
-  still fails validation: the constant-offset element access chain is collapsed
-  back to the bare `[N x T]` array variable during selection, and the op requires
-  a scalar/vector pointer. (A *dynamic* offset access chain is preserved and is
-  expected to work.) cajeta currently gates the `Shared<T>` cooperative-matrix
-  source off on Vulkan (`XPU-N04`) until this is fixed. Likely a small fix in the
-  GEP/access-chain selection or the coop-matrix pointer handling; will become
-  **PR 5** once root-caused and tested.
 
 ## Filing checklist (when XPU settles)
 
 1. Rebase the branch on current `llvm/main`.
 2. For each PR: split into its own branch off `main`, add SPIR-V lit tests,
    ensure `check-llvm-codegen-spirv` passes.
-3. Order: PR 3 and PR 4 (independent bugfixes) first, then PR 1 / PR 2
-   (extension features), then PR 5 (pending) once ready.
+3. Order: PR 3, PR 4, PR 5 (independent bugfixes; PR 5 is most natural after
+   PR 4) first, then PR 1 / PR 2 (extension features).
 4. Open PRs with the reproducers above; link related upstream coop-matrix work.

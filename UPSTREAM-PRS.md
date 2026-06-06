@@ -10,6 +10,17 @@ the *"two PRs with a `Depends on #X` note"* form — push branches to the fork
 `jklappenbach/cajeta-llvm`, open PRs against `llvm/llvm-project`. LLVM prefers small
 independent changes, so unrelated features stay independent.
 
+
+## Filed (llvm/llvm-project)
+
+| PR | number |
+|----|--------|
+| 1 ray-query | #202048 |
+| 2 coopmatrix-vulkan | #202049 |
+| 3 merge-placement | #202046 |
+| 4 global-array | #202047 |
+| 5 coopmatrix-aggregate-ptr (stacked, Depends on #202049 #202047) | #202050 |
+
 ## The five PRs
 
 Each PR branch is built off `upstream/main` and verified: applies clean, compiles,
@@ -25,7 +36,7 @@ and its lit tests pass against current `llvm/main`.
 
 - **PR 5 dependencies**: it modifies the cooperative-matrix selection that **PR 2**
   adds, and its lit test relies on **PR 4**'s array typing. File with
-  `Depends on #<PR2> #<PR4>`. Its branch carries 3 commits (PR 2, PR 4, then PR 5's
+  `Depends on #202049 #202047`. Its branch carries 3 commits (PR 2, PR 4, then PR 5's
   own); GitHub shows the combined diff — note "the first two commits are the
   dependencies; this PR adds the third." Once PR 2 + PR 4 merge it rebases to a
   single commit on `main`.
@@ -71,6 +82,6 @@ done
 1. `git push origin <each pr/ branch>`.
 2. Open PRs 1–4 (independent) against `llvm/llvm-project:main` from
    `jklappenbach:<branch>`.
-3. Open PR 5 last with `Depends on #<PR2> #<PR4>` and the base-commit note.
+3. Open PR 5 last with `Depends on #202049 #202047` and the base-commit note.
 4. Each PR's title/body = its commit message; add the reproducer + a note that it
    was verified against current `llvm/main`.

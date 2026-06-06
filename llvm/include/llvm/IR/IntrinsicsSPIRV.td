@@ -140,6 +140,12 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
     [IntrNoMem, Commutative] >;
   def int_spv_dot4add_i8packed : DefaultAttrsIntrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty], [IntrNoMem]>;
   def int_spv_dot4add_u8packed : DefaultAttrsIntrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty], [IntrNoMem]>;
+  // SPV_KHR_shader_clock: read a free-running counter (OpReadClockKHR). The arg
+  // is the SPIR-V Scope constant (1=Device, 2=Workgroup, 3=Subgroup); returns
+  // the 64-bit tick. The Shader flavor has no other reach to OpReadClockKHR (the
+  // OpReadClockKHR builtin path is OpenCL-only). InaccessibleMemOnly so two reads
+  // are not CSE'd into one.
+  def int_spv_read_clock : DefaultAttrsIntrinsic<[llvm_i64_ty], [llvm_i32_ty], [IntrInaccessibleMemOnly]>;
   def int_spv_subgroup_prefix_bit_count : DefaultAttrsIntrinsic<[llvm_i32_ty], [llvm_i1_ty], [IntrConvergent, IntrNoMem]>;
   def int_spv_wave_active_countbits : DefaultAttrsIntrinsic<[llvm_i32_ty], [llvm_i1_ty], [IntrConvergent, IntrNoMem]>;
   def int_spv_wave_all_equal : DefaultAttrsIntrinsic<[LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>], [llvm_any_ty], [IntrConvergent, IntrNoMem]>;

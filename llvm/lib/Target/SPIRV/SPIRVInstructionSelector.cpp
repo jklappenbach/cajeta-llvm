@@ -5095,6 +5095,11 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
         STI.isAtLeastSPIRVVer(VersionTuple(1, 6)))
       return selectDot4AddPacked<false>(ResVReg, ResType, I);
     return selectDot4AddPackedExpansion<false>(ResVReg, ResType, I);
+  case Intrinsic::spv_read_clock:
+    // result = OpReadClockKHR type scope  (the Shader-flavor reach to the clock;
+    // the OpReadClockKHR builtin path is OpenCL-only). Operand 2 = Scope const.
+    return selectOpWithSrcs(ResVReg, ResType, I, {I.getOperand(2).getReg()},
+                            SPIRV::OpReadClockKHR);
   case Intrinsic::spv_all:
     return selectAll(ResVReg, ResType, I);
   case Intrinsic::spv_any:

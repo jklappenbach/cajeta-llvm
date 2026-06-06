@@ -1653,9 +1653,12 @@ bool SPIRVInstructionSelector::selectCoopMatrixStore(MachineInstr &I) const {
   // Void side-effecting G_INTRINSIC: operand 0 = intrinsic id, operands 1.. =
   // pointer, matrix, memory_layout (<id> const), stride (<id> const).
   // OpCooperativeMatrixStoreKHR has no result/result-type.
+  // Build the (possible) element access chain BEFORE the store, so its result is
+  // defined before the store that consumes it.
+  Register Ptr = coopMatrixElementPtr(I.getOperand(1).getReg(), I);
   auto MIB = BuildMI(*I.getParent(), I, I.getDebugLoc(),
                      TII.get(SPIRV::OpCooperativeMatrixStoreKHR));
-  MIB.addUse(coopMatrixElementPtr(I.getOperand(1).getReg(), I));
+  MIB.addUse(Ptr);
   for (unsigned i = 2; i < I.getNumOperands(); ++i)
     MIB.addUse(I.getOperand(i).getReg());
   MIB.constrainAllUses(TII, TRI, RBI);

@@ -123,6 +123,8 @@ static const StringMap<SPIRV::Extension::Extension> SPIRVExtensionMap = {
      SPIRV::Extension::Extension::SPV_INTEL_bfloat16_conversion},
     {"SPV_KHR_subgroup_rotate",
      SPIRV::Extension::Extension::SPV_KHR_subgroup_rotate},
+    {"SPV_KHR_quad_control",
+     SPIRV::Extension::Extension::SPV_KHR_quad_control},
     {"SPV_INTEL_variable_length_array",
      SPIRV::Extension::Extension::SPV_INTEL_variable_length_array},
     {"SPV_INTEL_function_pointers",

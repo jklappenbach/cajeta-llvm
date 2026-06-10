@@ -348,6 +348,7 @@ defm SPV_KHR_bit_instructions : ExtensionOperand<87, [EnvOpenCL]>;
 defm SPV_NV_ray_tracing_motion_blur : ExtensionOperand<88, [EnvVulkan]>;
 defm SPV_KHR_uniform_group_instructions : ExtensionOperand<89, [EnvOpenCL]>;
 defm SPV_KHR_subgroup_rotate : ExtensionOperand<90, [EnvVulkan, EnvOpenCL]>;
+defm SPV_KHR_quad_control : ExtensionOperand<140, [EnvVulkan]>;
 defm SPV_INTEL_split_barrier : ExtensionOperand<91, [EnvOpenCL]>;
 defm SPV_KHR_ray_cull_mask : ExtensionOperand<92, [EnvVulkan]>;
 defm SPV_KHR_fragment_shader_barycentric : ExtensionOperand<93, [EnvVulkan]>;
@@ -578,6 +579,7 @@ defm DotProductInput4x8Bit : CapabilityOperand<6017, 0x10600, 0, [SPV_KHR_intege
 defm DotProductInput4x8BitPacked : CapabilityOperand<6018, 0x10600, 0, [SPV_KHR_integer_dot_product], []>;
 defm DotProduct : CapabilityOperand<6019, 0x10600, 0, [SPV_KHR_integer_dot_product], []>;
 defm GroupNonUniformRotateKHR : CapabilityOperand<6026, 0, 0, [SPV_KHR_subgroup_rotate], [GroupNonUniform]>;
+defm QuadControlKHR : CapabilityOperand<5087, 0, 0, [SPV_KHR_quad_control], [GroupNonUniform]>;
 defm FloatControls2
     : CapabilityOperand<6029, 0x10200, 0, [SPV_KHR_float_controls2], []>;
 defm AtomicFloat32AddEXT : CapabilityOperand<6033, 0, 0, [SPV_EXT_shader_atomic_float_add], []>;

@@ -1825,8 +1825,14 @@ void addInstrRequirements(const MachineInstr &MI,
     }
     break;
   }
+  case SPIRV::OpGroupNonUniformQuadBroadcast:
   case SPIRV::OpGroupNonUniformQuadSwap:
     Reqs.addCapability(SPIRV::Capability::GroupNonUniformQuad);
+    break;
+  case SPIRV::OpGroupNonUniformQuadAllKHR:
+  case SPIRV::OpGroupNonUniformQuadAnyKHR:
+    Reqs.addCapability(SPIRV::Capability::QuadControlKHR);
+    Reqs.addExtension(SPIRV::Extension::SPV_KHR_quad_control);
     break;
   case SPIRV::OpImageQueryLod:
     Reqs.addCapability(SPIRV::Capability::ImageQuery);

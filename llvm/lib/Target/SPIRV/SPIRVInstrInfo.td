@@ -870,7 +870,16 @@ def OpGroupNonUniformBitwiseXor: OpGroupNUGroup<"BitwiseXor", 361>;
 def OpGroupNonUniformLogicalAnd: OpGroupNUGroup<"LogicalAnd", 362>;
 def OpGroupNonUniformLogicalOr: OpGroupNUGroup<"LogicalOr", 363>;
 def OpGroupNonUniformLogicalXor: OpGroupNUGroup<"LogicalXor", 364>;
+def OpGroupNonUniformQuadBroadcast: OpGroupNU4<"QuadBroadcast", 365>;
 def OpGroupNonUniformQuadSwap: OpGroupNU4<"QuadSwap", 366>;
+
+// SPV_KHR_quad_control: quad-scoped vote (no Scope operand — implicitly quad).
+def OpGroupNonUniformQuadAllKHR: Op<5110, (outs ID:$res),
+                  (ins TYPE:$ty, ID:$pred),
+                  "$res = OpGroupNonUniformQuadAllKHR $ty $pred">;
+def OpGroupNonUniformQuadAnyKHR: Op<5111, (outs ID:$res),
+                  (ins TYPE:$ty, ID:$pred),
+                  "$res = OpGroupNonUniformQuadAnyKHR $ty $pred">;
 
 // SPV_KHR_subgroup_rotate
 def OpGroupNonUniformRotateKHR: Op<4431, (outs ID:$res),

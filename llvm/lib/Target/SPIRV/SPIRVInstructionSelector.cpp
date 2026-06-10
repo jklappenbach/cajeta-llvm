@@ -5261,6 +5261,29 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
     return selectWaveExclusiveScanSum(ResVReg, ResType, I);
   case Intrinsic::spv_wave_prefix_product:
     return selectWaveExclusiveScanProduct(ResVReg, ResType, I);
+  case Intrinsic::spv_quad_broadcast:
+    // OpGroupNonUniformQuadBroadcast type Subgroup value index — read `value`
+    // from quad lane `index`. selectWaveOpInst prepends the Subgroup scope, then
+    // appends the intrinsic operands (value, index) in op order.
+    return selectWaveOpInst(ResVReg, ResType, I,
+                            SPIRV::OpGroupNonUniformQuadBroadcast);
+  case Intrinsic::spv_quad_swap:
+    // OpGroupNonUniformQuadSwap type Subgroup value direction — exchange across
+    // the 2x2 quad by `direction` (0 horiz, 1 vert, 2 diag). The direction is a
+    // constant <id>, which the materialized i32 arg provides.
+    return selectWaveOpInst(ResVReg, ResType, I,
+                            SPIRV::OpGroupNonUniformQuadSwap);
+  case Intrinsic::spv_quad_all:
+    // OpGroupNonUniformQuadAllKHR type predicate — quad-wide AND vote. No Scope
+    // operand (the op is implicitly quad-scoped), so selectOpWithSrcs, not
+    // selectWaveOpInst.
+    return selectOpWithSrcs(ResVReg, ResType, I,
+                            {I.getOperand(2).getReg()},
+                            SPIRV::OpGroupNonUniformQuadAllKHR);
+  case Intrinsic::spv_quad_any:
+    return selectOpWithSrcs(ResVReg, ResType, I,
+                            {I.getOperand(2).getReg()},
+                            SPIRV::OpGroupNonUniformQuadAnyKHR);
   case Intrinsic::spv_quad_read_across_x: {
     return selectQuadSwap(ResVReg, ResType, I, /*Direction*/ 0);
   }

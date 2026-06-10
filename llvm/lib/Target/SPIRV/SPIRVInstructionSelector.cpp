@@ -445,6 +445,7 @@ private:
                              MachineInstr &I) const;
   bool selectImageWriteIntrinsic(MachineInstr &I) const;
   bool selectRayQueryInitialize(MachineInstr &I) const;
+  bool selectRayQueryVoid(MachineInstr &I, unsigned Opcode) const;
   bool selectCoopMatrixStore(MachineInstr &I) const;
   Register coopMatrixElementPtr(Register PtrReg, MachineInstr &I) const;
   bool selectResourceGetPointer(Register &ResVReg, SPIRVTypeInst ResType,
@@ -1600,8 +1601,15 @@ bool SPIRVInstructionSelector::selectSincos(Register ResVReg,
 bool SPIRVInstructionSelector::selectRayQueryInitialize(MachineInstr &I) const {
   // Void side-effecting G_INTRINSIC: operand 0 = intrinsic id, operands 1..8 =
   // rq (variable ptr), accel, rayFlags, cullMask, origin, tMin, dir, tMax.
-  auto MIB = BuildMI(*I.getParent(), I, I.getDebugLoc(),
-                     TII.get(SPIRV::OpRayQueryInitializeKHR));
+  return selectRayQueryVoid(I, SPIRV::OpRayQueryInitializeKHR);
+}
+
+bool SPIRVInstructionSelector::selectRayQueryVoid(MachineInstr &I,
+                                                  unsigned Opcode) const {
+  // Result-less side-effecting ray-query op: all G_INTRINSIC operands after the
+  // intrinsic id (operand 0) are ID uses, in order (e.g. initialize's rq+ray
+  // args, confirm's rq, generate's rq+tHit).
+  auto MIB = BuildMI(*I.getParent(), I, I.getDebugLoc(), TII.get(Opcode));
   for (unsigned i = 1; i < I.getNumOperands(); ++i)
     MIB.addUse(I.getOperand(i).getReg());
   MIB.constrainAllUses(TII, TRI, RBI);
@@ -4794,6 +4802,22 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
     return selectOpWithSrcs(ResVReg, ResType, I,
                             {I.getOperand(2).getReg(), I.getOperand(3).getReg()},
                             SPIRV::OpRayQueryGetIntersectionPrimitiveIndexKHR);
+  case Intrinsic::spv_ray_query_get_intersection_t:
+    return selectOpWithSrcs(ResVReg, ResType, I,
+                            {I.getOperand(2).getReg(), I.getOperand(3).getReg()},
+                            SPIRV::OpRayQueryGetIntersectionTKHR);
+  case Intrinsic::spv_ray_query_get_intersection_barycentrics:
+    return selectOpWithSrcs(ResVReg, ResType, I,
+                            {I.getOperand(2).getReg(), I.getOperand(3).getReg()},
+                            SPIRV::OpRayQueryGetIntersectionBarycentricsKHR);
+  case Intrinsic::spv_ray_query_get_intersection_front_face:
+    return selectOpWithSrcs(ResVReg, ResType, I,
+                            {I.getOperand(2).getReg(), I.getOperand(3).getReg()},
+                            SPIRV::OpRayQueryGetIntersectionFrontFaceKHR);
+  case Intrinsic::spv_ray_query_confirm_intersection:
+    return selectRayQueryVoid(I, SPIRV::OpRayQueryConfirmIntersectionKHR);
+  case Intrinsic::spv_ray_query_generate_intersection:
+    return selectRayQueryVoid(I, SPIRV::OpRayQueryGenerateIntersectionKHR);
   case Intrinsic::spv_cooperative_matrix_load:
     // result = OpCooperativeMatrixLoadKHR ptr memory_layout stride
     return selectOpWithSrcs(

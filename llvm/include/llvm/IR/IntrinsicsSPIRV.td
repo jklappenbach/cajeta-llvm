@@ -408,6 +408,20 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
   // RTNN exact-distance refinement step). Args: rq ptr, intersection (0/1).
   def int_spv_ray_query_get_intersection_primitive_index
     : Intrinsic<[llvm_i32_ty], [llvm_ptr_ty, llvm_i32_ty]>;
+  // inc 3b — nearest-hit getters + commit. t / barycentrics / front-face read the
+  // candidate or committed (intersection 0/1) geometry; confirm (triangle) /
+  // generate (AABB, with a shader t) commit the current candidate. Side-effecting
+  // (no IntrNoMem): confirm/generate mutate the query, and the getters read it.
+  def int_spv_ray_query_get_intersection_t
+    : Intrinsic<[llvm_float_ty], [llvm_ptr_ty, llvm_i32_ty]>;
+  def int_spv_ray_query_get_intersection_barycentrics
+    : Intrinsic<[llvm_v2f32_ty], [llvm_ptr_ty, llvm_i32_ty]>;
+  def int_spv_ray_query_get_intersection_front_face
+    : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_i32_ty]>;
+  def int_spv_ray_query_confirm_intersection
+    : Intrinsic<[], [llvm_ptr_ty]>;
+  def int_spv_ray_query_generate_intersection
+    : Intrinsic<[], [llvm_ptr_ty, llvm_float_ty]>;
 
   // SPV_KHR_cooperative_matrix operations under the Vulkan/Shader flavor. The
   // KHR builtin (__spirv_*) path is isShader()-gated off (OpenCL-only), so the

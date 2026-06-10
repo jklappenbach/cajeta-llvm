@@ -228,6 +228,21 @@ def OpRayQueryGetIntersectionTypeKHR: Op<4479, (outs ID:$res),
 def OpRayQueryGetIntersectionPrimitiveIndexKHR: Op<6023, (outs ID:$res),
                   (ins TYPE:$resType, ID:$rq, ID:$intersection),
                   "$res = OpRayQueryGetIntersectionPrimitiveIndexKHR $resType $rq $intersection">;
+// cajeta-gpu ray-query-to-core inc 3b: nearest-hit + geometry getters. The
+// candidate/committed selector is $intersection (0 = candidate, 1 = committed).
+def OpRayQueryGenerateIntersectionKHR: Op<4475, (outs), (ins ID:$rq, ID:$tHit),
+                  "OpRayQueryGenerateIntersectionKHR $rq $tHit">;
+def OpRayQueryConfirmIntersectionKHR: Op<4476, (outs), (ins ID:$rq),
+                  "OpRayQueryConfirmIntersectionKHR $rq">;
+def OpRayQueryGetIntersectionTKHR: Op<6018, (outs ID:$res),
+                  (ins TYPE:$resType, ID:$rq, ID:$intersection),
+                  "$res = OpRayQueryGetIntersectionTKHR $resType $rq $intersection">;
+def OpRayQueryGetIntersectionBarycentricsKHR: Op<6024, (outs ID:$res),
+                  (ins TYPE:$resType, ID:$rq, ID:$intersection),
+                  "$res = OpRayQueryGetIntersectionBarycentricsKHR $resType $rq $intersection">;
+def OpRayQueryGetIntersectionFrontFaceKHR: Op<6025, (outs ID:$res),
+                  (ins TYPE:$resType, ID:$rq, ID:$intersection),
+                  "$res = OpRayQueryGetIntersectionFrontFaceKHR $resType $rq $intersection">;
 
 // 3.42.7 Constant-Creation Instructions
 

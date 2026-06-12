@@ -1,10 +1,10 @@
-; cajeta-gpu quad (2x2) cross-lane ops reached from the Vulkan/Shader flavor via
-; the llvm.spv.quad.* intrinsics + GlobalISel selection. broadcast and swap are
+; Quad (2x2) cross-lane ops reached from the Vulkan/Shader flavor via the
+; llvm.spv.quad.* intrinsics and GlobalISel selection. broadcast and swap are
 ; core SPIR-V (GroupNonUniformQuad); all/any are SPV_KHR_quad_control (a
-; quad-wide vote with no Scope operand — implicitly quad-scoped). The __spirv
+; quad-wide vote with no Scope operand, implicitly quad-scoped). The __spirv
 ; quad builtins are OpenCL-only (the builtin lowering is isShader()-gated off),
-; so the Shader flavor Cajeta emits needs the intrinsics — the shader-clock /
-; subgroup-rotate / ray-query / cooperative-matrix pattern.
+; so the Shader flavor needs the intrinsics, following the shader-clock,
+; subgroup-rotate, ray-query, and cooperative-matrix pattern.
 ;
 ; A GLCompute kernel broadcasts a descriptor-bound value from quad lane 0, swaps
 ; it diagonally across the quad, then quad-votes a predicate over the 2x2 group.

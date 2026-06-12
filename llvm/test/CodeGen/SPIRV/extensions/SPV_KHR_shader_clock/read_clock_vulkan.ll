@@ -1,8 +1,8 @@
-; cajeta-gpu shader clock: OpReadClockKHR reached from the Vulkan/Shader flavor
-; via the llvm.spv.read.clock intrinsic + GlobalISel selection. The OpReadClockKHR
-; builtin path (__spirv_ReadClockKHR / clock_read_*) is OpenCL-only (the builtin
-; lowering is isShader()-gated off), so the Shader flavor Cajeta emits needs the
-; intrinsic — the texture / ray-query / cooperative-matrix pattern.
+; OpReadClockKHR reached from the Vulkan/Shader flavor via the llvm.spv.read.clock
+; intrinsic and GlobalISel selection. The OpReadClockKHR builtin path
+; (__spirv_ReadClockKHR / clock_read_*) is OpenCL-only (the builtin lowering is
+; isShader()-gated off), so the Shader flavor needs the intrinsic, following the
+; texture, ray-query, and cooperative-matrix pattern.
 ;
 ; A GLCompute kernel times a region: read the subgroup clock (scope 3) before and
 ; after, store the tick delta into a descriptor-bound StorageBuffer. Two reads

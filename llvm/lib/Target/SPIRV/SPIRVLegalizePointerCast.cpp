@@ -532,12 +532,9 @@ class SPIRVLegalizePointerCastImpl {
         continue;
       }
 
-      // A raw atomicrmw / cmpxchg consumes the pointer directly; its value type
-      // matches the pointee, so the ptrcast ahead of it is spurious — bypass it
-      // (use the original pointer) like spv_gep. Without this an atomic on a
-      // casted pointer (e.g. an atomic on element 0 of a `shared` aggregate,
-      // where the GEP folds to the aggregate base) falls through to the
-      // llvm_unreachable below — a crash in release builds.
+      // A raw atomicrmw or cmpxchg consumes the pointer directly, so the ptrcast
+      // ahead of it is spurious; bypass it like spv_gep to avoid the unreachable
+      // below.
       if (isa<AtomicRMWInst>(User) || isa<AtomicCmpXchgInst>(User)) {
         GR->replaceAllUsesWith(CastedOperand, OriginalOperand,
                                /* DeleteOld= */ false);
@@ -556,11 +553,8 @@ class SPIRVLegalizePointerCastImpl {
           continue;
         }
 
-        // An atomic compare-exchange consumes the pointer directly (its value
-        // type already matches the pointee). The ptrcast inserted ahead of it is
-        // spurious — bypass it like spv_gep, so the cmpxchg uses the original
-        // pointer. Without this the loop falls through to llvm_unreachable below
-        // (a segfault in release) for any cmpxchg through a casted pointer.
+        // A cmpxchg consumes the pointer directly, so bypass the spurious
+        // ptrcast like spv_gep.
         if (Intrin->getIntrinsicID() == Intrinsic::spv_cmpxchg) {
           GR->replaceAllUsesWith(CastedOperand, OriginalOperand,
                                  /* DeleteOld= */ false);

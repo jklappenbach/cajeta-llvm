@@ -1,9 +1,6 @@
-; cajeta-gpu C3.3 increment 2b: SPV_KHR_ray_query OPERATIONS via llvm.spv intrinsics.
-; The __spirv_* builtin path is shader-gated (OpenCL-only) and cannot lower ray
-; query (an EnvVulkan-only extension), so the ops go through llvm.spv.ray.query.*
-; intrinsics + GlobalISel selection (the path textures' llvm.spv.resource.* use,
-; which runs for every flavor). Emission check; a descriptor-bound, spirv-val-clean
-; kernel is increment 2c.
+; SPV_KHR_ray_query operations via llvm.spv.ray.query.* intrinsics and GlobalISel
+; selection, used because the __spirv_* builtin path is OpenCL-only and cannot
+; lower ray query, which is a Vulkan-only extension.
 
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_ray_query %s -o - | FileCheck %s
 

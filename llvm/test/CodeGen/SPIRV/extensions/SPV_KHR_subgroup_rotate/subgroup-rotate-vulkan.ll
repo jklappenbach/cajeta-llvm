@@ -1,11 +1,11 @@
-; cajeta-gpu subgroup rotate: OpGroupNonUniformRotateKHR reached from the
-; Vulkan/Shader flavor via the llvm.spv.subgroup.rotate intrinsic + GlobalISel
-; selection. The __spirv builtin path (sub_group_rotate) is OpenCL-only (the
-; builtin lowering is isShader()-gated off), so the Shader flavor Cajeta emits
-; needs the intrinsic — the shader-clock / ray-query / cooperative-matrix
-; pattern. The opcode, the GroupNonUniformRotateKHR capability, the
-; SPV_KHR_subgroup_rotate extension, and the module-analysis requirement all
-; already exist in the backend; this wires the intrinsic to the op.
+; OpGroupNonUniformRotateKHR reached from the Vulkan/Shader flavor via the
+; llvm.spv.subgroup.rotate intrinsic and GlobalISel selection. The __spirv builtin
+; path (sub_group_rotate) is OpenCL-only (the builtin lowering is isShader()-gated
+; off), so the Shader flavor needs the intrinsic, following the shader-clock,
+; ray-query, and cooperative-matrix pattern. The opcode, the
+; GroupNonUniformRotateKHR capability, the SPV_KHR_subgroup_rotate extension, and
+; the module-analysis requirement all already exist in the backend; this wires the
+; intrinsic to the op.
 ;
 ; A GLCompute kernel rotates a descriptor-bound value across the subgroup by a
 ; lane delta and stores it back. The whole module passes spirv-val

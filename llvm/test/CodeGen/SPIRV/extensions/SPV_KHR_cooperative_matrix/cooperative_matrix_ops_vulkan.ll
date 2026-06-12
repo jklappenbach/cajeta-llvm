@@ -1,16 +1,11 @@
-; cajeta-gpu cooperative-matrix increment CM2: the cooperative-matrix OPERATIONS
-; (load / store / mul-add / splat-construct) under the Vulkan/Shader flavor, reached
-; via llvm.spv.cooperative.matrix.* intrinsics + GlobalISel selection. The OpenCL
-; __spirv_CooperativeMatrix* builtin path is isShader()-gated off, so the Shader
-; flavor Cajeta emits cannot use it; these intrinsics are the texture / ray-query
-; pattern that runs for every flavor.
+; The cooperative-matrix operations (load, store, mul-add, splat-construct) under
+; the Vulkan/Shader flavor, reached via llvm.spv.cooperative.matrix.* intrinsics
+; and GlobalISel selection because the OpenCL __spirv_CooperativeMatrix* builtin
+; path is OpenCL-only.
 ;
 ; A single matmul tile fragment: C = A * B + 0. A is MatrixA (use 0), B is MatrixB
-; (use 1), C the accumulator (use 2); all 16x16 f32, Subgroup scope (3). memory
+; (use 1), C the accumulator (use 2); all 16x16 f32, Subgroup scope (3). Memory
 ; layout 0 = RowMajorKHR, stride 16.
-;
-; Text-emission check (FileCheck only); the spirv-val-clean, descriptor-bound
-; compute kernel is increment CM3.
 
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_KHR_vulkan_memory_model %s -o - | FileCheck %s
 

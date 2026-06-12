@@ -26,11 +26,9 @@ entry:
   ret void
 }
 
-; A cmpxchg whose pointer flows through an emit-intrinsics-inserted spv.ptrcast
-; (an i32 atomic accessed through the differently-typed @M) must be handled by
+; A cmpxchg whose pointer flows through an spv.ptrcast is handled by
 ; legalize-pointer-cast: the cmpxchg consumes the original pointer directly, so
-; the spurious ptrcast is dropped. Previously this fell through to
-; llvm_unreachable("Unsupported ptrcast user"), a release-mode crash.
+; the spurious ptrcast is dropped.
 
 define spir_func void @cmpxchg_through_ptrcast() #0 {
 ; CHECK-LABEL: define spir_func void @cmpxchg_through_ptrcast(
@@ -43,11 +41,9 @@ entry:
   ret void
 }
 
-; An atomicrmw whose pointer flows through a ptrcast (an i32 atomic on the
-; differently-typed @M — e.g. an atomic on element 0 of a shared aggregate, whose
-; GEP folds to the aggregate base) must likewise be handled: the atomic consumes
-; the original pointer directly. Previously a raw atomicrmw user hit the same
-; llvm_unreachable("Unsupported ptrcast user").
+; An atomicrmw whose pointer flows through a ptrcast is likewise handled: the
+; atomic consumes the original pointer directly, so the spurious ptrcast is
+; dropped.
 
 define spir_func void @atomicrmw_through_ptrcast() #0 {
 ; CHECK-LABEL: define spir_func void @atomicrmw_through_ptrcast(

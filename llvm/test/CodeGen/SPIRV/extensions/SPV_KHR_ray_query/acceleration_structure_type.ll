@@ -1,8 +1,6 @@
-; cajeta-gpu C3.3 increment 2a: SPV_KHR_ray_query AccelerationStructure TYPE.
-; Proves target("spirv.AccelerationStructureKHR") lowers to
-; OpTypeAccelerationStructureKHR (opcode 5341), gated by the RayQueryKHR capability
-; + SPV_KHR_ray_query extension. Text-emission check (the operations that consume an
-; acceleration structure arrive in increment 2b).
+; Check that target("spirv.AccelerationStructureKHR") lowers to
+; OpTypeAccelerationStructureKHR, gated by the RayQueryKHR capability and the
+; SPV_KHR_ray_query extension.
 
 ; RUN: not llc -O0 -mtriple=spirv-unknown-vulkan1.3-compute %s -o /dev/null 2>&1 | FileCheck %s --check-prefix=CHECK-ERROR
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_ray_query %s -o - | FileCheck %s

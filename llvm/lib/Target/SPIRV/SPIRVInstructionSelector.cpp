@@ -1616,16 +1616,10 @@ bool SPIRVInstructionSelector::selectRayQueryVoid(MachineInstr &I,
   return true;
 }
 
-// OpCooperativeMatrixLoad/StoreKHR require the Pointer to point to a scalar or
-// vector (the tile's element type). A workgroup/shared array tile, however,
-// reaches the selector as a pointer to the whole `[N x T]` array: in opaque-
-// pointer IR `&arr[0]` is the same SSA value as `&arr`, and a zero-index element
-// GEP is simplified back to the array base during SPIRVEmitIntrinsics — so by
-// selection the pointer's pointee type is the array. (A dynamic-offset access is
-// already an OpAccessChain to an element and is unaffected.) Index the array to
-// its first element so the cooperative-matrix op gets the scalar pointer it
-// requires; the access chain's index 0 selects the same address the layout/stride
-// operands then walk from. Returns PtrReg unchanged when it is not an aggregate.
+// OpCooperativeMatrixLoad/StoreKHR require the pointer to point to the element
+// type. A workgroup array tile reaches the selector as a pointer to the whole
+// array, so index it to its first element to get the scalar pointer the op
+// requires. Returns PtrReg unchanged when it is not an aggregate.
 Register SPIRVInstructionSelector::coopMatrixElementPtr(Register PtrReg,
                                                         MachineInstr &I) const {
   SPIRVTypeInst PtrType = GR.getSPIRVTypeForVReg(PtrReg);
@@ -4828,16 +4822,14 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
   case Intrinsic::spv_cooperative_matrix_store:
     return selectCoopMatrixStore(I);
   case Intrinsic::spv_cooperative_matrix_muladd:
-    // result = OpCooperativeMatrixMulAddKHR A B C  (no operands literal: the
-    // signedness mask is for integer matrices; float matmul omits it, valid).
+    // OpCooperativeMatrixMulAddKHR A B C; no operands literal for float matmul.
     return selectOpWithSrcs(
         ResVReg, ResType, I,
         {I.getOperand(2).getReg(), I.getOperand(3).getReg(),
          I.getOperand(4).getReg()},
         SPIRV::OpCooperativeMatrixMulAddKHR);
   case Intrinsic::spv_cooperative_matrix_splat:
-    // result = OpCompositeConstruct scalar  (single-scalar construct broadcasts
-    // across the matrix — the zero/identity accumulator).
+    // OpCompositeConstruct from a scalar broadcasts the accumulator.
     return selectOpWithSrcs(ResVReg, ResType, I, {I.getOperand(2).getReg()},
                             SPIRV::OpCompositeConstruct);
   case Intrinsic::spv_unref_global:
@@ -5278,7 +5270,7 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
     // result = OpGroupNonUniformRotateKHR type Subgroup value delta. The
     // __spirv builtin path is OpenCL-only; this reaches the op from the Shader
     // flavor. selectWaveOpInst prepends the Subgroup scope, then appends the
-    // intrinsic operands (value, delta) — exactly the op's operand order.
+    // intrinsic operands (value, delta) in the op's operand order.
     return selectWaveOpInst(ResVReg, ResType, I,
                             SPIRV::OpGroupNonUniformRotateKHR);
   case Intrinsic::spv_wave_prefix_sum:
@@ -5286,19 +5278,19 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
   case Intrinsic::spv_wave_prefix_product:
     return selectWaveExclusiveScanProduct(ResVReg, ResType, I);
   case Intrinsic::spv_quad_broadcast:
-    // OpGroupNonUniformQuadBroadcast type Subgroup value index — read `value`
-    // from quad lane `index`. selectWaveOpInst prepends the Subgroup scope, then
+    // OpGroupNonUniformQuadBroadcast type Subgroup value index: read value from
+    // quad lane index. selectWaveOpInst prepends the Subgroup scope, then
     // appends the intrinsic operands (value, index) in op order.
     return selectWaveOpInst(ResVReg, ResType, I,
                             SPIRV::OpGroupNonUniformQuadBroadcast);
   case Intrinsic::spv_quad_swap:
-    // OpGroupNonUniformQuadSwap type Subgroup value direction — exchange across
-    // the 2x2 quad by `direction` (0 horiz, 1 vert, 2 diag). The direction is a
+    // OpGroupNonUniformQuadSwap type Subgroup value direction: exchange across
+    // the 2x2 quad by direction (0 horiz, 1 vert, 2 diag). The direction is a
     // constant <id>, which the materialized i32 arg provides.
     return selectWaveOpInst(ResVReg, ResType, I,
                             SPIRV::OpGroupNonUniformQuadSwap);
   case Intrinsic::spv_quad_all:
-    // OpGroupNonUniformQuadAllKHR type predicate — quad-wide AND vote. No Scope
+    // OpGroupNonUniformQuadAllKHR type predicate: quad-wide AND vote. No Scope
     // operand (the op is implicitly quad-scoped), so selectOpWithSrcs, not
     // selectWaveOpInst.
     return selectOpWithSrcs(ResVReg, ResType, I,

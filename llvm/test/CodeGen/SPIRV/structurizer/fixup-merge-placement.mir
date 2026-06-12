@@ -1,14 +1,10 @@
 # RUN: llc -mtriple=spirv-unknown-vulkan1.3-compute -run-pass=spirv-fixup-merge-placement %s -o - | FileCheck %s
 #
-# Unit test for SPIRVFixupMergePlacement. A loop header whose OpLoopMerge has an
-# instruction wedged between it and the block's OpBranchConditional (the shape
-# MachineCSE produces when it commons a value into the header -- see the pass
-# header comment) must be repaired so the merge again immediately precedes the
-# branch. The pass sinks the merge down past the wedged instruction.
+# A loop header whose OpLoopMerge has an instruction wedged between it and the
+# block's OpBranchConditional must be repaired so the merge again immediately
+# precedes the branch.
 #
 # CHECK-LABEL: bb.1.header:
-# The commoned value stays put; the merge is re-seated immediately before the
-# branch (and nothing separates them).
 # CHECK:      OpIMulS
 # CHECK-NEXT: OpLoopMerge %bb.2, %bb.4, 0
 # CHECK-NEXT: OpBranchConditional {{.*}}%bb.3, %bb.2

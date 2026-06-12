@@ -1,20 +1,16 @@
 ; A cooperative-matrix load/store whose source is a workgroup-shared array tile.
-;
-; In opaque-pointer IR the source pointer is the whole `[N x T]` Workgroup array
-; (`&arr[0]` is the same SSA value as `&arr`, and a zero-index element GEP folds to
-; the base in SPIRVEmitIntrinsics). OpCooperativeMatrixLoad/StoreKHR require the
-; Pointer to point to a scalar/vector, so the selector must access-chain the array
-; to element 0 before the cooperative-matrix op. (Regression test for the
-; cooperative-matrix aggregate-pointer access-chain fix.)
+; In opaque-pointer IR the source pointer is the whole Workgroup array, so the
+; selector must access-chain the array to element 0 before the cooperative-matrix
+; op, which requires a pointer to the element type.
 
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_KHR_vulkan_memory_model %s -o - | FileCheck %s
 ; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_KHR_vulkan_memory_model %s -o - -filetype=obj | spirv-val %}
 
-@tile = internal addrspace(3) global [256 x half] undef, align 16
+@tile = internal addrspace(3) global [256 x half] poison, align 16
 
 ; CHECK-DAG: %[[#Half:]] = OpTypeFloat 16
 ; CHECK-DAG: %[[#U32:]] = OpTypeInt 32 0
-; The undef, non-constant Workgroup global keeps its array type (it is not
+; The poison, non-constant Workgroup global keeps its array type (it is not
 ; collapsed to a scalar pointer).
 ; CHECK-DAG: %[[#Arr:]] = OpTypeArray %[[#Half]] %[[#]]
 ; CHECK-DAG: %[[#ArrPtr:]] = OpTypePointer Workgroup %[[#Arr]]

@@ -1,15 +1,8 @@
-; cajeta-gpu C3.3 increment 2c: a spirv-val-clean GLCompute kernel that uses
-; SPV_KHR_ray_query against a DESCRIPTOR-BOUND acceleration structure.
-;
-; Unlike the emission tests (increments 1/2a/2b), which pass the AS by value (a
-; convenience that pulls in the Vulkan-invalid Linkage capability), here the AS
-; is a UniformConstant global decorated DescriptorSet/Binding, materialized via
-; the standard llvm.spv.resource.handlefrombinding path (the AS type falls into
-; the generic non-image branch of loadHandleBeforePosition, which emits exactly
-; the OpVariable UniformConstant + OpLoad we need). The kernel runs the spatial-
-; index pattern: initialize a (degenerate) ray, proceed over candidates, inspect
-; the candidate AABB intersection type, then read the committed type. The whole
-; module must pass `spirv-val --target-env vulkan1.3`.
+; A GLCompute kernel using SPV_KHR_ray_query against a descriptor-bound
+; acceleration structure (a UniformConstant global decorated DescriptorSet and
+; Binding, materialized via llvm.spv.resource.handlefrombinding). It initializes
+; a ray, proceeds over candidates, inspects the candidate intersection type, and
+; reads the committed type. The module must pass spirv-val --target-env vulkan1.3.
 
 ; RUN: llc -O0 -verify-machineinstrs -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_ray_query %s -o - | FileCheck %s
 ; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_ray_query %s -o - -filetype=obj | spirv-val --target-env vulkan1.3 %}

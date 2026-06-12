@@ -228,8 +228,8 @@ def OpRayQueryGetIntersectionTypeKHR: Op<4479, (outs ID:$res),
 def OpRayQueryGetIntersectionPrimitiveIndexKHR: Op<6023, (outs ID:$res),
                   (ins TYPE:$resType, ID:$rq, ID:$intersection),
                   "$res = OpRayQueryGetIntersectionPrimitiveIndexKHR $resType $rq $intersection">;
-// cajeta-gpu ray-query-to-core inc 3b: nearest-hit + geometry getters. The
-// candidate/committed selector is $intersection (0 = candidate, 1 = committed).
+// Nearest-hit and geometry getters. The candidate/committed selector is
+// $intersection (0 = candidate, 1 = committed).
 def OpRayQueryGenerateIntersectionKHR: Op<4475, (outs), (ins ID:$rq, ID:$tHit),
                   "OpRayQueryGenerateIntersectionKHR $rq $tHit">;
 def OpRayQueryConfirmIntersectionKHR: Op<4476, (outs), (ins ID:$rq),
@@ -888,7 +888,7 @@ def OpGroupNonUniformLogicalXor: OpGroupNUGroup<"LogicalXor", 364>;
 def OpGroupNonUniformQuadBroadcast: OpGroupNU4<"QuadBroadcast", 365>;
 def OpGroupNonUniformQuadSwap: OpGroupNU4<"QuadSwap", 366>;
 
-// SPV_KHR_quad_control: quad-scoped vote (no Scope operand — implicitly quad).
+// SPV_KHR_quad_control: quad-scoped vote (no Scope operand, implicitly quad).
 def OpGroupNonUniformQuadAllKHR: Op<5110, (outs ID:$res),
                   (ins TYPE:$ty, ID:$pred),
                   "$res = OpGroupNonUniformQuadAllKHR $ty $pred">;

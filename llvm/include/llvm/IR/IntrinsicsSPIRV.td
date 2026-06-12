@@ -164,7 +164,7 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
   def int_spv_wave_product : DefaultAttrsIntrinsic<[llvm_any_ty], [LLVMMatchType<0>], [IntrConvergent, IntrNoMem]>;
   def int_spv_wave_is_first_lane : DefaultAttrsIntrinsic<[llvm_i1_ty], [], [IntrConvergent]>;
   def int_spv_wave_readlane : DefaultAttrsIntrinsic<[llvm_any_ty], [LLVMMatchType<0>, llvm_i32_ty], [IntrConvergent, IntrNoMem]>;
-  // Subgroup rotate (SPV_KHR_subgroup_rotate): rotate `value` across lanes by a
+  // Subgroup rotate (SPV_KHR_subgroup_rotate): rotate a value across lanes by a
   // signed lane delta -> OpGroupNonUniformRotateKHR (Subgroup scope). The
   // __spirv builtin path is OpenCL-only; this reaches it from the Shader flavor.
   def int_spv_subgroup_rotate : DefaultAttrsIntrinsic<[llvm_any_ty], [LLVMMatchType<0>, llvm_i32_ty], [IntrConvergent, IntrNoMem]>;
@@ -175,8 +175,8 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
   def int_spv_quad_read_across_x : DefaultAttrsIntrinsic<[llvm_any_ty], [LLVMMatchType<0>], [IntrConvergent, IntrNoMem]>;
   def int_spv_quad_read_across_y : DefaultAttrsIntrinsic<[llvm_any_ty], [LLVMMatchType<0>], [IntrConvergent, IntrNoMem]>;
   // Quad (2x2) cross-lane ops reached from the Vulkan/Shader flavor. broadcast
-  // (read `value` from quad lane `index` 0-3) and swap (exchange across the quad
-  // by `direction` 0=horiz 1=vert 2=diag) are core SPIR-V (GroupNonUniformQuad);
+  // (read a value from a quad lane index 0-3) and swap (exchange across the quad
+  // by direction 0=horiz 1=vert 2=diag) are core SPIR-V (GroupNonUniformQuad);
   // all/any (quad-wide vote of a per-lane predicate) are SPV_KHR_quad_control.
   // The __spirv quad builtins are OpenCL-only, so the Shader flavor needs these.
   def int_spv_quad_broadcast : DefaultAttrsIntrinsic<[llvm_any_ty], [LLVMMatchType<0>, llvm_i32_ty], [IntrConvergent, IntrNoMem]>;
@@ -367,7 +367,7 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
 
   // Write a value to a 2-D storage image at integer coordinate (x, y).
   // Like store_typedbuffer it translates directly to a single OpImageWrite,
-  // but the coordinate is a 2-component integer vector (cajeta Image2D.store).
+  // but the coordinate is a 2-component integer vector.
   def int_spv_resource_store_2d
     : DefaultAttrsIntrinsic<[], [llvm_any_ty, llvm_v2i32_ty, llvm_anyvector_ty]>;
 
@@ -375,7 +375,7 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
   // The 2-D counterpart of load_typedbuffer (which takes a scalar index);
   // the coordinate is a 2-component integer vector. Lowers to OpImageRead
   // (Sampled=2 storage image); the result is the requested type (a scalar
-  // result is read as a vec4 then component-extracted). (cajeta Image2D.load.)
+  // result is read as a vec4 then component-extracted).
   def int_spv_resource_load_2d
     : DefaultAttrsIntrinsic<[llvm_any_ty], [llvm_any_ty, llvm_v2i32_ty]>;
 
@@ -394,8 +394,7 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
   def int_spv_packhalf2x16 : DefaultAttrsIntrinsic<[llvm_anyint_ty], [llvm_anyfloat_ty], [IntrNoMem]>;
 
   // SPV_KHR_ray_query operations. The ray query object is a function-local
-  // variable (a pointer to target("spirv.RayQueryKHR")); these are
-  // side-effecting (initialize/proceed mutate it), so no IntrNoMem.
+  // pointer to target("spirv.RayQueryKHR") and is mutated, so no IntrNoMem.
   def int_spv_ray_query_initialize
     : Intrinsic<[], [llvm_ptr_ty, llvm_any_ty, llvm_i32_ty, llvm_i32_ty,
                      llvm_v3f32_ty, llvm_float_ty, llvm_v3f32_ty, llvm_float_ty]>;
@@ -403,13 +402,12 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
     : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty]>;
   def int_spv_ray_query_get_intersection_type
     : Intrinsic<[llvm_i32_ty], [llvm_ptr_ty, llvm_i32_ty]>;
-  // The primitive (AABB / triangle) index of the candidate/committed intersection
-  // — lets a kernel recover which indexed datum a ray-query candidate hit (the
-  // RTNN exact-distance refinement step). Args: rq ptr, intersection (0/1).
+  // The primitive index of the candidate or committed intersection.
+  // Args: rq ptr, intersection (0/1).
   def int_spv_ray_query_get_intersection_primitive_index
     : Intrinsic<[llvm_i32_ty], [llvm_ptr_ty, llvm_i32_ty]>;
-  // inc 3b — nearest-hit getters + commit. t / barycentrics / front-face read the
-  // candidate or committed (intersection 0/1) geometry; confirm (triangle) /
+  // Nearest-hit getters and commit. t, barycentrics, and front-face read the
+  // candidate or committed (intersection 0/1) geometry; confirm (triangle) and
   // generate (AABB, with a shader t) commit the current candidate. Side-effecting
   // (no IntrNoMem): confirm/generate mutate the query, and the getters read it.
   def int_spv_ray_query_get_intersection_t

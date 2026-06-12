@@ -1,15 +1,10 @@
-; cajeta-gpu cooperative-matrix increment CM3: a spirv-val-clean GLCompute kernel
-; that runs a cooperative-matrix matmul tile against DESCRIPTOR-BOUND storage
-; buffers under the Vulkan flavor.
-;
-; Unlike the emission tests (CM1/CM2), which pass matrices by value / use bare
-; function pointers, here A and B are read-only StorageBuffers and C a writable
-; StorageBuffer, each a VulkanBuffer handle decorated DescriptorSet/Binding and
-; accessed through the standard llvm.spv.resource.handlefrombinding + getpointer
-; path (exactly how Cajeta binds Buffer<T>). The kernel loads A (use 0) and B
-; (use 1) as cooperative matrices, mul-adds into a zero accumulator C (use 2), and
-; stores C. The whole module must pass `spirv-val --target-env vulkan1.3` — the
-; end-to-end validity proof before the Cajeta surface (CM4).
+; A GLCompute kernel that runs a cooperative-matrix matmul tile against
+; descriptor-bound storage buffers under the Vulkan flavor. A and B are read-only
+; StorageBuffers and C a writable StorageBuffer, each a VulkanBuffer handle
+; decorated DescriptorSet and Binding and accessed through
+; llvm.spv.resource.handlefrombinding and getpointer. The kernel loads A (use 0)
+; and B (use 1) as cooperative matrices, mul-adds into a zero accumulator C
+; (use 2), and stores C. The module must pass spirv-val --target-env vulkan1.3.
 
 ; RUN: llc -O0 -verify-machineinstrs -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_KHR_vulkan_memory_model %s -o - | FileCheck %s
 ; RUN: %if spirv-tools %{ llc -O0 -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_KHR_vulkan_memory_model %s -o - -filetype=obj | spirv-val --target-env vulkan1.3 %}

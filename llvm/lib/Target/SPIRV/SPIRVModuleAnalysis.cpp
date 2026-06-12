@@ -162,7 +162,7 @@ void SPIRVModuleAnalysis::setBaseInfo(const Module &M) {
     // model (operand value 3 -> requires the VulkanMemoryModelKHR capability and
     // the SPV_KHR_vulkan_memory_model extension, both added below); otherwise
     // keep GLSL450 for shaders. (Mixing cooperative matrix with workgroup
-    // barriers would also need Vulkan-model barrier scopes — a later concern.)
+    // barriers would also need Vulkan-model barrier scopes, a later concern.)
     bool UsesCoopMatrix = false;
     for (const Function &F : M)
       if (F.getName().starts_with("llvm.spv.cooperative.matrix.")) {

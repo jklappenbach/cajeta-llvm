@@ -2553,18 +2553,9 @@ void SPIRVEmitIntrinsics::processGlobalValue(GlobalVariable &GV,
   if (!shouldEmitIntrinsicsForGlobalValue(GVUsers, GV, CurrF))
     return;
 
-  // Deduce and record the variable's pointee type from its declared value type,
-  // for EVERY global — not only hasInitializer() ones. A global variable's type
-  // is concrete and authoritative; recording it here (this runs before the
-  // use-based forward pass) keeps an undef-initialized, non-constant aggregate —
-  // e.g. a Workgroup `[N x T]` shared tile — from being collapsed to its element
-  // type by flat element-typed GEP accesses. Without this, hasInitializer()
-  // excludes such globals (undef + non-constant), the variable's type is inferred
-  // from a `getelementptr T, ...` use as scalar `T`, the array-to-pointer-decay
-  // GEP rewrite in visitGetElementPtrInst is skipped (its ArrayType check fails),
-  // and under Logical SPIR-V the dynamic index is dropped — every invocation then
-  // accesses element 0. (Result ignored: TypedPointerType isn't expressible in
-  // general LLVM IR; it is stored in the Global Registry.)
+  // Record the pointee type for every global, not only initialized ones, so an
+  // uninitialized non-constant aggregate global is not later collapsed to its
+  // element type. Result is ignored; the type is stored in the Global Registry.
   deduceElementTypeHelper(&GV, false);
 
   Constant *Init = nullptr;

@@ -1,20 +1,23 @@
 name: build-cajeta-llvm
 # Builds an LLVM+clang+lld toolchain matching cajeta's requirements and publishes
-# it as a GitHub Release asset. This file belongs in the FORK
-# (jklappenbach/cajeta-llvm — the renamed llvm-project fork), at
-# .github/workflows/build-cajeta-llvm.yml, on the `cajeta-spirv` branch. cajeta CI
-# then downloads the asset (see cajeta-ci-consume.yml).
+# it as a GitHub Release asset, ONE PER TARGET. This file belongs in the FORK
+# (jklappenbach/cajeta-llvm), at .github/workflows/build-cajeta-llvm.yml, on the
+# `cajeta-spirv` branch. cajeta CI downloads the matching asset per target (see
+# cajeta-two's release.yml "Fetch prebuilt LLVM toolchain").
 #
-# Build contract mirrors cajeta's live config (cpp/llvm-project/build/CMakeCache.txt):
-#   Release · RTTI=ON · assertions=OFF · static libs · targets X86;NVPTX;AMDGPU;SPIRV
-#   + projects clang;lld so the artifact bundles a version-matched clang-23 (cajeta
-#     compiles its runtime to bitcode via find_program(clang-${LLVM_VERSION_MAJOR})).
+# Build contract mirrors cajeta's live config:
+#   Release · RTTI=ON · assertions=OFF · static libs · projects clang;lld
+#   targets = <native host arch>;NVPTX;AMDGPU;SPIRV  (native is needed for
+#     cajeta's --emit=exe host codegen; the GPU targets are common to all).
+#   The artifact bundles a version-matched clang-23 (cajeta compiles its runtime
+#   to bitcode via find_program(clang-${LLVM_VERSION_MAJOR})), so writer/reader
+#   never skew.
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag, e.g. cajeta-llvm-23-r1"
+        description: "Release tag, e.g. cajeta-llvm-23-r4"
         required: true
   push:
     tags: ["cajeta-llvm-*"]
@@ -22,74 +25,110 @@ on:
 permissions:
   contents: write          # needed to create the Release
 
+env:
+  # One cache dir for every OS (avoids the ~ vs MSYS-home mismatch on Windows).
+  CCACHE_DIR: ${{ github.workspace }}/.ccache
+
 jobs:
   build:
-    # Host-artifact matrix mirrors cajeta release.yml. One toolchain per HOST; the
-    # X86;NVPTX;AMDGPU;SPIRV targets are all in each. Build linux-x64 FIRST — it
-    # unblocks all Part C dev + AMD (Strix Halo) AND NVIDIA (Windows box via WSL2,
-    # reusing this same linux-x64 artifact — see plans/c0 / gpu-plan B5).
+    # One toolchain per HOST. Each bundles <native>;NVPTX;AMDGPU;SPIRV so the
+    # produced clang can emit host code AND target every GPU backend cajeta uses.
     strategy:
       fail-fast: false
       matrix:
         include:
-          # ACTIVE — the only leg needed to unblock development + on-device testing.
+          # linux-x64 — self-hosted Strix Halo (no apt sudo; pre-provisioned).
           - host: linux-x64
-            runs-on: [self-hosted, linux, x64]   # Strix Halo. No self-hosted box?
-            #          ^ swap for: ubuntu-22.04   # (slow; keep link_jobs: 1 to avoid link OOM)
+            runs-on: [self-hosted, linux, x64]
             asset_os: linux-x64
+            llvm_targets: "X86;NVPTX;AMDGPU;SPIRV"
             link_jobs: 2
-          # linux-arm64 — release artifact AND Jetson Orin / cradle (arm64). Builds on
-          # a GitHub-hosted ARM runner; the apt dep-install + tar/package steps below
-          # are Linux-generic so they cover this leg as-is. link_jobs: 1 because the
-          # free hosted runner OOMs at LLVM link with more. fail-fast:false keeps a
-          # slow/failed arm build from blocking the linux-x64 leg. NOTE: only builds
-          # on the NEXT tag push (won't retroactively join an already-cut release).
+            shell: bash
+          # linux-arm64 — GitHub-hosted ARM. link_jobs:1 (free runner OOMs at link).
           - host: linux-arm64
             runs-on: ubuntu-24.04-arm
             asset_os: linux-arm64
+            llvm_targets: "AArch64;NVPTX;AMDGPU;SPIRV"
             link_jobs: 1
-          # ---- Remaining legs mirror release.yml — uncomment per host when needed. ----
-          # NOTE: the mac (brew) and Windows (MSYS2, .zip, mingw-w64) legs need their
-          # own dep-install/package steps mirroring release.yml before enabling.
-          # - host: macos-arm64
-          #   runs-on: macos-14
-          #   asset_os: macos-arm64
-          # - host: windows-x64                  # RELEASE-ONLY, DEFERRED (mingw-w64; MSVC/CUDA tension).
-          #   runs-on: windows-latest            # NOT needed for NVIDIA bring-up — that runs in WSL2.
-          #   asset_os: windows-x64
+            shell: bash
+          # macos-arm64 — GitHub-hosted Apple silicon (M1). Apple clang + ld64.
+          - host: macos-arm64
+            runs-on: macos-14
+            asset_os: macos-arm64
+            llvm_targets: "AArch64;NVPTX;AMDGPU;SPIRV"
+            link_jobs: 2
+            shell: bash
+          # windows-x64 — GitHub-hosted, built under MSYS2/MinGW-w64 (the cajeta
+          # Windows binary is mingw, so its LLVM must be mingw too). The slowest
+          # + most fragile leg; fail-fast:false keeps it from blocking the others.
+          - host: windows-x64
+            runs-on: windows-latest
+            asset_os: windows-x64
+            llvm_targets: "X86;NVPTX;AMDGPU;SPIRV"
+            link_jobs: 1
+            shell: 'msys2 {0}'
+
     runs-on: ${{ matrix.runs-on }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 1 }
 
-      - name: Install build deps
-        # Self-hosted runners (e.g. the Strix Halo) pre-provision these and often
-        # lack passwordless sudo — skip apt there; only GitHub-hosted runners need it.
-        if: runner.environment == 'github-hosted'
+      # ---- Per-OS build dependencies ----------------------------------
+      - name: Install build deps (Linux, GitHub-hosted)
+        if: runner.os == 'Linux' && runner.environment == 'github-hosted'
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build cmake ccache clang lld zstd python3
 
+      - name: Install build deps (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja cmake ccache zstd
+
+      - name: Setup MSYS2 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-clang
+            mingw-w64-x86_64-lld
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-ccache
+            mingw-w64-x86_64-zstd
+            tar
+            python
+
       - name: Restore ccache
         uses: actions/cache@v4
         with:
-          path: ~/.cache/ccache
-          key: ccache-llvm-${{ github.sha }}
-          restore-keys: ccache-llvm-
+          path: ${{ github.workspace }}/.ccache
+          key: ccache-llvm-${{ matrix.asset_os }}-${{ github.sha }}
+          restore-keys: ccache-llvm-${{ matrix.asset_os }}-
 
       - name: Configure
         run: |
+          set -eu
+          # Apple's default linker is ld64; lld isn't installed there. Use lld on
+          # Linux/Windows (faster + lower memory), the system linker on macOS.
+          LINKER_FLAG="-DLLVM_USE_LINKER=lld"
+          if [ "${{ runner.os }}" = "macOS" ]; then LINKER_FLAG=""; fi
           cmake -G Ninja -S llvm -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DLLVM_ENABLE_ASSERTIONS=OFF \
             -DLLVM_ENABLE_RTTI=ON \
-            -DLLVM_TARGETS_TO_BUILD="X86;NVPTX;AMDGPU;SPIRV" \
+            -DLLVM_TARGETS_TO_BUILD="${{ matrix.llvm_targets }}" \
             -DLLVM_ENABLE_PROJECTS="clang;lld" \
             -DLLVM_BUILD_LLVM_DYLIB=OFF -DLLVM_LINK_LLVM_DYLIB=OFF \
             -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_DOCS=OFF \
             -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-            -DLLVM_USE_LINKER=lld \
+            $LINKER_FLAG \
             -DLLVM_PARALLEL_LINK_JOBS=${{ matrix.link_jobs }} \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
@@ -101,11 +140,16 @@ jobs:
       - name: Package
         id: pack
         run: |
+          set -eu
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
           # TAG already begins with "cajeta-llvm-"; don't re-prepend it.
           NAME="${TAG}-${{ matrix.asset_os }}.tar.zst"
           tar --zstd -cf "$NAME" -C "$PWD" llvm-install
-          sha256sum "$NAME" > "$NAME.sha256"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$NAME" > "$NAME.sha256"
+          else
+            shasum -a 256 "$NAME" > "$NAME.sha256"
+          fi
           echo "asset=$NAME" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG"   >> "$GITHUB_OUTPUT"
 

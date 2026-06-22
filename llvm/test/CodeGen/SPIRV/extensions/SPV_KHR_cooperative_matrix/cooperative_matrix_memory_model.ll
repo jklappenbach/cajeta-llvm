@@ -1,7 +1,5 @@
-; A Shader module that requires the CooperativeMatrixKHR capability has its memory
-; model upgraded from the default GLSL450 to VulkanKHR (spirv-val rejects Shader +
-; CooperativeMatrixKHR under GLSL450). No spirv.MemoryModel metadata is set, so the
-; model is derived from the required capability.
+; A Shader module requiring CooperativeMatrixKHR derives the VulkanKHR memory
+; model with no spirv.MemoryModel metadata (GLSL450 + CoopMatrix is invalid).
 
 ; RUN: llc -verify-machineinstrs -O0 -mtriple=spirv-unknown-vulkan1.3-compute --spirv-ext=+SPV_KHR_cooperative_matrix,+SPV_KHR_vulkan_memory_model %s -o - | FileCheck %s
 

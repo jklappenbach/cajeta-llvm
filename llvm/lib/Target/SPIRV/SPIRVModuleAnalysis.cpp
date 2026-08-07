@@ -1018,8 +1018,14 @@ void RequirementHandler::initAvailableCapabilitiesForOpenCL(
 void RequirementHandler::initAvailableCapabilitiesForVulkan(
     const SPIRVSubtarget &ST) {
 
-  // Core in Vulkan 1.1 and earlier.
+  // Core in Vulkan 1.1 and earlier. Int64Atomics is core SPIR-V but
+  // hardware-optional, like Float64/Int64: the driver gates it behind
+  // VkPhysicalDeviceShaderAtomicInt64Features::shaderBufferInt64Atomics
+  // (VK_KHR_shader_atomic_int64, core in Vulkan 1.2), which the consumer
+  // enables at device creation. Listing it here lets the Shader flavor emit
+  // 64-bit OpAtomic* with the Int64Atomics capability declared.
   addAvailableCaps({Capability::Int64,
+                    Capability::Int64Atomics,
                     Capability::Float16,
                     Capability::Float64,
                     Capability::GroupNonUniform,

@@ -15,7 +15,6 @@ unittest("OrcJITTests") {
     "//llvm/lib/Testing/Support",
   ]
   sources = [
-    "COFFAutoImportGeneratorTest.cpp",
     "CallSPSViaEPCTest.cpp",
     "CallableTraitsHelperTest.cpp",
     "CoreAPIsTest.cpp",

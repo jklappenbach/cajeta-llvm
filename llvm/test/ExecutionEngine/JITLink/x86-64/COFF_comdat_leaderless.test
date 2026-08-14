@@ -1,0 +1,92 @@
+# REQUIRES: asserts
+# RUN: yaml2obj %s -o %t
+# RUN: llvm-jitlink -num-threads=0 -debug-only=jitlink -noexec \
+# RUN:              -abs __ImageBase=0xfff00000 -slab-allocate 100Kb \
+# RUN:              -slab-address 0xfff00000 -slab-page-size 4096 %t 2>&1 \
+# RUN:              | FileCheck %s
+#
+# Check that a COMDAT section with no leader symbol still gets a graph symbol
+# for its own section symbol, so relocations naming it resolve.
+#
+# A COMDAT section is normally described by two symbols in sequence: the
+# section symbol carrying the selection, then an external leader naming the
+# contents. Exception-handling COMDATs break that rule: `.xdata$<fn>` holds
+# unwind data that is not externally named, so its section symbol is the only
+# symbol in the section, and the function's `.pdata` entry points at it with an
+# IMAGE_REL_AMD64_ADDR32NB relocation. Any COMDAT function compiled with
+# unwind info produces this shape, and lld-link accepts it.
+#
+# Before the fix the pending COMDAT export for such a section was never
+# flushed, so the section symbol had no graph symbol and the link failed with
+# "Could not find symbol at given index, did you add it to JITSymbolTable?".
+#
+# CHECK: Creating graph symbols...
+# CHECK: 2: Creating defined graph symbol for leaderless COMDAT section symbol ".xdata" in section 2
+--- !COFF
+header:
+  Machine:         IMAGE_FILE_MACHINE_AMD64
+  Characteristics: [  ]
+sections:
+  - Name:            .text
+    Characteristics: [ IMAGE_SCN_CNT_CODE, IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ ]
+    Alignment:       16
+    SectionData:     'C3'
+  - Name:            .xdata
+    Characteristics: [ IMAGE_SCN_CNT_INITIALIZED_DATA, IMAGE_SCN_LNK_COMDAT, IMAGE_SCN_MEM_READ ]
+    Alignment:       4
+    SectionData:     '0000000000000000'
+  - Name:            .pdata
+    Characteristics: [ IMAGE_SCN_CNT_INITIALIZED_DATA, IMAGE_SCN_MEM_READ ]
+    Alignment:       4
+    SectionData:     '00000000'
+    Relocations:
+      - VirtualAddress:  0
+        SymbolTableIndex: 2
+        Type:            IMAGE_REL_AMD64_ADDR32NB
+symbols:
+  - Name:            .text
+    Value:           0
+    SectionNumber:   1
+    SimpleType:      IMAGE_SYM_TYPE_NULL
+    ComplexType:     IMAGE_SYM_DTYPE_NULL
+    StorageClass:    IMAGE_SYM_CLASS_STATIC
+    SectionDefinition:
+      Length:          1
+      NumberOfRelocations: 0
+      NumberOfLinenumbers: 0
+      CheckSum:        0
+      Number:          1
+# The leaderless COMDAT: a section symbol carrying a selection, with no
+# external symbol following it in the same section.
+  - Name:            .xdata
+    Value:           0
+    SectionNumber:   2
+    SimpleType:      IMAGE_SYM_TYPE_NULL
+    ComplexType:     IMAGE_SYM_DTYPE_NULL
+    StorageClass:    IMAGE_SYM_CLASS_STATIC
+    SectionDefinition:
+      Length:          8
+      NumberOfRelocations: 0
+      NumberOfLinenumbers: 0
+      CheckSum:        0
+      Number:          2
+      Selection:       IMAGE_COMDAT_SELECT_ANY
+  - Name:            .pdata
+    Value:           0
+    SectionNumber:   3
+    SimpleType:      IMAGE_SYM_TYPE_NULL
+    ComplexType:     IMAGE_SYM_DTYPE_NULL
+    StorageClass:    IMAGE_SYM_CLASS_STATIC
+    SectionDefinition:
+      Length:          4
+      NumberOfRelocations: 1
+      NumberOfLinenumbers: 0
+      CheckSum:        0
+      Number:          3
+  - Name:            main
+    Value:           0
+    SectionNumber:   1
+    SimpleType:      IMAGE_SYM_TYPE_NULL
+    ComplexType:     IMAGE_SYM_DTYPE_FUNCTION
+    StorageClass:    IMAGE_SYM_CLASS_EXTERNAL
+...

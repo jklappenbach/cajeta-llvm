@@ -158,6 +158,7 @@ private:
 
   Error handleDirectiveSection(StringRef Str);
   Error flushWeakAliasRequests();
+  Error flushLeaderlessComdatExports();
   Error handleAlternateNames();
   Error calculateImplicitSizeOfSymbols();
 

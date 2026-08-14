@@ -266,6 +266,9 @@ Error COFFLinkGraphBuilder::graphifySymbols() {
   if (auto Err = flushWeakAliasRequests())
     return Err;
 
+  if (auto Err = flushLeaderlessComdatExports())
+    return Err;
+
   if (auto Err = handleAlternateNames())
     return Err;
 
@@ -343,6 +346,63 @@ Error COFFLinkGraphBuilder::flushWeakAliasRequests() {
       return make_error<JITLinkError>("Weak symbol alias requested but actual "
                                       "symbol not found for symbol " +
                                       formatv("{0:d}", WeakExternal.Alias));
+  }
+  return Error::success();
+}
+
+// A COMDAT section is normally described by two symbols in sequence: the
+// section symbol, which carries the selection, followed by an external leader
+// that names the contents (see createCOMDATExportRequest above). Only the
+// leader creates the graph symbol, and it back-fills the section symbol's
+// entry as it goes.
+//
+// Exception-handling COMDATs have no leader. `.xdata$<fn>` holds unwind data
+// and `.pdata$<fn>` the RUNTIME_FUNCTION entry; neither is externally named,
+// so the section symbol is the only symbol in the section and the pending
+// export recorded for it is never flushed. Its graph symbol stays null, and
+// the relocation that names it -- the `.pdata` entry's third
+// IMAGE_REL_AMD64_ADDR32NB, pointing at its `.xdata` -- then fails with
+// "Could not find symbol at given index". Any COMDAT function compiled with
+// unwind info produces this shape, and lld-link accepts it.
+//
+// Define the section symbol itself for every COMDAT left pending after the
+// symbol scan. Size is left 0 for the same reason exportCOMDATSymbol leaves
+// it 0: the recorded length is the SECTION's, not the symbol's.
+Error COFFLinkGraphBuilder::flushLeaderlessComdatExports() {
+  for (COFFSectionIndex SecIndex = 1;
+       SecIndex <= static_cast<COFFSectionIndex>(Obj.getNumberOfSections());
+       ++SecIndex) {
+    auto &PendingComdatExport = PendingComdatExports[SecIndex];
+    if (!PendingComdatExport)
+      continue;
+
+    COFFSymbolIndex SymIndex = PendingComdatExport->SymbolIndex;
+    Block *B = getGraphBlock(SecIndex);
+    if (!B) {
+      // Section was skipped (see graphifySections); nothing to anchor to.
+      PendingComdatExport = std::nullopt;
+      continue;
+    }
+
+    auto Symbol = Obj.getSymbol(SymIndex);
+    if (!Symbol)
+      return Symbol.takeError();
+    auto SymbolName = Obj.getSymbolName(*Symbol);
+    if (!SymbolName)
+      return SymbolName.takeError();
+
+    auto &GSym = G->addDefinedSymbol(
+        *B, 0, G->intern(*SymbolName), 0, PendingComdatExport->Linkage,
+        Scope::Local, false, false);
+    LLVM_DEBUG({
+      dbgs() << "    " << SymIndex
+             << ": Creating defined graph symbol for leaderless COMDAT section"
+                " symbol \""
+             << *SymbolName << "\" in section " << SecIndex << "\n";
+      dbgs() << "      " << GSym << "\n";
+    });
+    setGraphSymbol(SecIndex, SymIndex, GSym);
+    PendingComdatExport = std::nullopt;
   }
   return Error::success();
 }

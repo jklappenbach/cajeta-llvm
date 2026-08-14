@@ -320,6 +320,69 @@ Error synthesizeIATEntries_COFF_x86_64(LinkGraph &G) {
 
   return Error::success();
 }
+
+// Route calls to external symbols through jump stubs.
+//
+// A COFF IMAGE_REL_AMD64_REL32 fixup reaches +/-2GB. That is fine within one
+// JIT'd object, but a call to a symbol in the host process -- strcmp in the
+// CRT, __divti3 in compiler-rt, anything a DynamicLibrarySearchGenerator
+// resolves -- can land arbitrarily far away: on Windows the JIT slab is
+// commonly allocated low while loaded modules sit near 0x7ff8_00000000, which
+// is several terabytes out of range. Without stubs the link fails with
+// "relocation target ... is out of range of PCRel32 fixup", and every JIT'd
+// module that calls the CRT is unlinkable.
+//
+// RuntimeDyld's COFF/x86-64 backend has always done this: it emits a stub
+// whenever a REL32 relocation names an external symbol
+// (RuntimeDyldCOFFX86_64.h, `if (IsExtern) generateRelocationStub(...)`).
+// This is the JITLink equivalent, built from the same x86_64 table managers
+// ELF uses.
+//
+// Only CALL/JMP/Jcc sites are promoted. COFF has a single REL32 relocation for
+// both control transfer and RIP-relative data access, and a stub is only valid
+// for the former -- routing `movl var(%rip), %eax` through a jump stub would
+// read the stub's code bytes instead of the variable. An out-of-range data
+// access must still be an error (COFF_external_var.s pins exactly that), so
+// the opcode immediately preceding the displacement is what decides:
+//
+//     E8 cd        call rel32
+//     E9 cd        jmp rel32
+//     0F 8x cd     jcc rel32
+//
+// The edges are created Bypassable, so optimizeGOTAndStubAccesses rewrites
+// them back to a direct branch whenever the target turns out to be in range.
+// An out-of-range target is the only case that keeps the indirection, and it
+// is the case that does not link at all today.
+static bool isBranchFixupSite(Block &B, const Edge &E) {
+  if (B.isZeroFill())
+    return false;
+  auto Content = B.getContent();
+  auto Off = E.getOffset();
+  if (Off >= 1) {
+    auto Op = static_cast<uint8_t>(Content[Off - 1]);
+    if (Op == 0xE8 || Op == 0xE9)
+      return true;
+  }
+  if (Off >= 2 && static_cast<uint8_t>(Content[Off - 2]) == 0x0F) {
+    auto Op = static_cast<uint8_t>(Content[Off - 1]);
+    if ((Op & 0xF0) == 0x80)
+      return true;
+  }
+  return false;
+}
+
+Error buildTables_COFF_x86_64(LinkGraph &G) {
+  for (auto *B : G.blocks())
+    for (auto &E : B->edges())
+      if (E.getKind() == EdgeKind_coff_x86_64::PCRel32 &&
+          !E.getTarget().isDefined() && isBranchFixupSite(*B, E))
+        E.setKind(x86_64::BranchPCRel32);
+
+  x86_64::GOTTableManager GOT(G);
+  x86_64::PLTTableManager PLT(G, GOT);
+  visitExistingEdges(G, GOT, PLT);
+  return Error::success();
+}
 } // namespace
 
 namespace llvm {
@@ -381,8 +444,17 @@ void link_COFF_x86_64(std::unique_ptr<LinkGraph> G,
     // lookup) so the X targets it introduces are resolved normally.
     Config.PostPrunePasses.push_back(synthesizeIATEntries_COFF_x86_64);
 
+    // Route calls to external symbols through jump stubs, so a target outside
+    // PCRel32 range (the host CRT, typically) is reachable. Runs after IAT
+    // synthesis so the X targets that pass introduces are covered too.
+    Config.PostPrunePasses.push_back(buildTables_COFF_x86_64);
+
     // Add COFF edge lowering passes.
     Config.PreFixupPasses.push_back(COFFLinkGraphLowering_x86_64());
+
+    // Bypass any stub whose target turned out to be in range once addresses
+    // were assigned, so the indirection costs nothing in the common case.
+    Config.PreFixupPasses.push_back(x86_64::optimizeGOTAndStubAccesses);
   }
 
   if (auto Err = Ctx->modifyPassConfig(*G, Config))

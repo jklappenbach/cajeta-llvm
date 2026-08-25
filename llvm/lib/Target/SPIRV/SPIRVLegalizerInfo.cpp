@@ -299,8 +299,17 @@ SPIRVLegalizerInfo::SPIRVLegalizerInfo(const SPIRVSubtarget &ST) {
       .lower();
 
   // Illegal G_UNMERGE_VALUES instructions should be handled
-  // during the combine phase.
+  // during the combine phase. That only works when the wide source is a
+  // merge-like artifact; a source that is a real instruction (a loop-carried
+  // G_PHI, an intrinsic result) survives to here, so on targets whose
+  // MaxVectorSize is below the source width the source is first split into
+  // MaxVectorSize pieces (fewerElementsVectorUnmergeValues), whose inner
+  // unmerge then combines with the producer once that producer has itself
+  // been narrowed.
   getActionDefinitionsBuilder(G_UNMERGE_VALUES)
+      .fewerElementsIf(vectorElementCountIsGreaterThan(1, MaxVectorSize),
+                       LegalizeMutations::changeElementCountTo(
+                           1, ElementCount::getFixed(MaxVectorSize)))
       .legalIf(vectorElementCountIsLessThanOrEqualTo(1, MaxVectorSize));
 
   getActionDefinitionsBuilder({G_MEMCPY, G_MEMMOVE})
@@ -348,12 +357,33 @@ SPIRVLegalizerInfo::SPIRVLegalizerInfo(const SPIRVSubtarget &ST) {
       .legalForCartesianProduct(allIntScalarsAndVectors)
       .legalIf(extendedScalarsAndVectorsProduct);
 
-  // Extensions.
+  // Extensions. As with G_PHI below, the split rule comes BEFORE the legal
+  // sets: allScalarsAndVectors includes the 8- and 16-wide vectors, so on a
+  // shader target a wide ext/trunc would otherwise stay legal and keep a
+  // wide value alive whose unmerge artifacts then cannot collapse. On
+  // kernel targets the predicate never fires.
   getActionDefinitionsBuilder({G_TRUNC, G_ZEXT, G_SEXT, G_ANYEXT})
+      .moreElementsToNextPow2(0)
+      .fewerElementsIf(vectorElementCountIsGreaterThan(0, MaxVectorSize),
+                       LegalizeMutations::changeElementCountTo(
+                           0, ElementCount::getFixed(MaxVectorSize)))
       .legalForCartesianProduct(allScalarsAndVectors)
       .legalIf(extendedScalarsAndVectorsProduct);
 
+  // The split rule must come BEFORE legalFor: allPtrsScalarsAndVectors
+  // includes the 8- and 16-wide vectors, so on a shader target
+  // (MaxVectorSize 4) a wide loop-carried PHI would otherwise be declared
+  // legal here and keep the wide value alive for its consumers — whose
+  // unmerge artifacts then have no merge to combine with and hard-fail.
+  // Splitting the PHI (fewerElementsVectorPhi) is what lets the whole
+  // chain collapse to MaxVectorSize pieces. On kernel targets
+  // (MaxVectorSize 16) the predicate never fires and behavior is
+  // unchanged.
   getActionDefinitionsBuilder(G_PHI)
+      .moreElementsToNextPow2(0)
+      .fewerElementsIf(vectorElementCountIsGreaterThan(0, MaxVectorSize),
+                       LegalizeMutations::changeElementCountTo(
+                           0, ElementCount::getFixed(MaxVectorSize)))
       .legalFor(allPtrsScalarsAndVectors)
       .legalIf(extendedPtrsScalarsAndVectors);
 

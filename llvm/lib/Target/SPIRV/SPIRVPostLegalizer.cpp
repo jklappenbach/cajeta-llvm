@@ -49,7 +49,15 @@ static SPIRVTypeInst deduceIntTypeFromResult(Register ResVReg,
                                              MachineIRBuilder &MIB,
                                              SPIRVGlobalRegistry *GR) {
   const LLT &Ty = MIB.getMRI()->getType(ResVReg);
-  return GR->getOrCreateSPIRVIntegerType(Ty.getScalarSizeInBits(), MIB);
+  SPIRVTypeInst Comp =
+      GR->getOrCreateSPIRVIntegerType(Ty.getScalarSizeInBits(), MIB);
+  // A legalizer-split vector ext (e.g. <4 x s16> = G_SEXT <4 x s8>) must get a
+  // vector result type — typing it by scalar width alone produced an OpSConvert
+  // whose result dimension mismatched its input (invalid per spirv-val).
+  if (Ty.isVector())
+    return GR->getOrCreateSPIRVVectorType(Comp, Ty.getNumElements(), MIB,
+                                          false);
+  return Comp;
 }
 
 static SPIRVTypeInst deduceTypeFromSingleOperand(MachineInstr *I,

@@ -57,7 +57,7 @@ entry:
       @llvm.spv.cooperative.matrix.muladd(
           target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 0) %a,
           target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 1) %b,
-          target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 2) %c0)
+          target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 2) %c0, i32 0)
   %hc = tail call target("spirv.VulkanBuffer", [0 x float], 12, 1)
       @llvm.spv.resource.handlefrombinding.tspirv.VulkanBuffer_a0f32_12_1t(
           i32 0, i32 2, i32 1, i32 0, ptr nonnull @.str.c)

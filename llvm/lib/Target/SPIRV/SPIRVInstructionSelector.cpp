@@ -4821,13 +4821,27 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
         SPIRV::OpCooperativeMatrixLoadKHR);
   case Intrinsic::spv_cooperative_matrix_store:
     return selectCoopMatrixStore(I);
-  case Intrinsic::spv_cooperative_matrix_muladd:
-    // OpCooperativeMatrixMulAddKHR A B C; no operands literal for float matmul.
-    return selectOpWithSrcs(
-        ResVReg, ResType, I,
-        {I.getOperand(2).getReg(), I.getOperand(3).getReg(),
-         I.getOperand(4).getReg()},
-        SPIRV::OpCooperativeMatrixMulAddKHR);
+  case Intrinsic::spv_cooperative_matrix_muladd: {
+    // OpCooperativeMatrixMulAddKHR A B C [Cooperative Matrix Operands].
+    // Operand 5 is the signedness mask (MatrixASignedComponentsKHR = 0x1,
+    // B = 0x2, C = 0x4, Result = 0x8). It MUST be emitted for signed integer
+    // components: SPIR-V integer types are signless and a flagless MulAdd
+    // multiplies them as unsigned (int8 -1 becomes 255). Float matmuls pass
+    // 0 and get no literal, preserving the previous encoding.
+    uint64_t SignFlags = getIConstVal(I.getOperand(5).getReg(), MRI);
+    MachineBasicBlock &BB = *I.getParent();
+    auto MIB = BuildMI(BB, I, I.getDebugLoc(),
+                       TII.get(SPIRV::OpCooperativeMatrixMulAddKHR))
+                   .addDef(ResVReg)
+                   .addUse(GR.getSPIRVTypeID(ResType))
+                   .addUse(I.getOperand(2).getReg())
+                   .addUse(I.getOperand(3).getReg())
+                   .addUse(I.getOperand(4).getReg());
+    if (SignFlags != 0)
+      MIB.addImm(SignFlags);
+    MIB.constrainAllUses(TII, TRI, RBI);
+    return true;
+  }
   case Intrinsic::spv_cooperative_matrix_splat:
     // OpCompositeConstruct from a scalar broadcasts the accumulator.
     return selectOpWithSrcs(ResVReg, ResType, I, {I.getOperand(2).getReg()},

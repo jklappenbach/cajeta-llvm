@@ -438,7 +438,8 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
   def int_spv_cooperative_matrix_store
     : Intrinsic<[], [llvm_anyptr_ty, llvm_any_ty, llvm_i32_ty, llvm_i32_ty]>;
   def int_spv_cooperative_matrix_muladd
-    : Intrinsic<[llvm_any_ty], [llvm_any_ty, llvm_any_ty, llvm_any_ty]>;
+    : Intrinsic<[llvm_any_ty],
+                [llvm_any_ty, llvm_any_ty, llvm_any_ty, llvm_i32_ty]>;
   def int_spv_cooperative_matrix_splat
     : Intrinsic<[llvm_any_ty], [llvm_any_ty]>;
 }

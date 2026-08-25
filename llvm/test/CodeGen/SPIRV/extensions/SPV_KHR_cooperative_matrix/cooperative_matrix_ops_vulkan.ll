@@ -22,6 +22,13 @@
 ; CHECK: %[[#C0:]] = OpCompositeConstruct
 ; CHECK: %[[#C:]] = OpCooperativeMatrixMulAddKHR %[[#]] %[[#A]] %[[#B]] %[[#C0]]
 ; CHECK: OpCooperativeMatrixStoreKHR %[[#]] %[[#C]]
+; The signed-int8 tile: the intrinsic's i32 flags operand becomes the KHR
+; Cooperative Matrix Operands literal (A|B|C|Result signed = 0xF = 15).
+; WITHOUT it, integer components multiply as unsigned — int8 -1 reads as 255
+; (the wrong-values GEMM measured on RADV 2026-08-25) — so this CHECK is the
+; one that must FIRE for signed integer matmuls.
+; CHECK: %[[#CI:]] = OpCooperativeMatrixMulAddKHR %[[#]] %[[#IA:]] %[[#IB:]] %[[#IC0:]] 15
+; CHECK: OpCooperativeMatrixStoreKHR %[[#]] %[[#CI]]
 
 define spir_func void @matmul_tile(ptr %pa, ptr %pb, ptr %pc) {
 entry:
@@ -35,10 +42,30 @@ entry:
        @llvm.spv.cooperative.matrix.muladd(
          target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 0) %a,
          target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 1) %b,
-         target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 2) %c0)
+         target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 2) %c0, i32 0)
   call void @llvm.spv.cooperative.matrix.store(
          ptr %pc,
          target("spirv.CooperativeMatrixKHR", float, 3, 16, 16, 2) %c,
+         i32 0, i32 16)
+  ret void
+}
+
+define spir_func void @matmul_tile_i8(ptr %pa, ptr %pb, ptr %pc) {
+entry:
+  %a = call target("spirv.CooperativeMatrixKHR", i8, 3, 16, 16, 0)
+       @llvm.spv.cooperative.matrix.load(ptr %pa, i32 0, i32 16)
+  %b = call target("spirv.CooperativeMatrixKHR", i8, 3, 16, 16, 1)
+       @llvm.spv.cooperative.matrix.load(ptr %pb, i32 0, i32 16)
+  %c0 = call target("spirv.CooperativeMatrixKHR", i32, 3, 16, 16, 2)
+        @llvm.spv.cooperative.matrix.splat(i32 0)
+  %c = call target("spirv.CooperativeMatrixKHR", i32, 3, 16, 16, 2)
+       @llvm.spv.cooperative.matrix.muladd(
+         target("spirv.CooperativeMatrixKHR", i8, 3, 16, 16, 0) %a,
+         target("spirv.CooperativeMatrixKHR", i8, 3, 16, 16, 1) %b,
+         target("spirv.CooperativeMatrixKHR", i32, 3, 16, 16, 2) %c0, i32 15)
+  call void @llvm.spv.cooperative.matrix.store(
+         ptr %pc,
+         target("spirv.CooperativeMatrixKHR", i32, 3, 16, 16, 2) %c,
          i32 0, i32 16)
   ret void
 }

@@ -140,6 +140,9 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
     [IntrNoMem, Commutative] >;
   def int_spv_dot4add_i8packed : DefaultAttrsIntrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty], [IntrNoMem]>;
   def int_spv_dot4add_u8packed : DefaultAttrsIntrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty], [IntrNoMem]>;
+  // Mixed signedness (OpSUDot): operand 1 packs SIGNED bytes, operand 2
+  // packs UNSIGNED bytes. (acc, x_signed, y_unsigned) like its siblings.
+  def int_spv_dot4add_su8packed : DefaultAttrsIntrinsic<[llvm_i32_ty], [llvm_i32_ty, llvm_i32_ty, llvm_i32_ty], [IntrNoMem]>;
   // SPV_KHR_shader_clock: read a free-running counter (OpReadClockKHR). The arg
   // is the SPIR-V Scope constant (1=Device, 2=Workgroup, 3=Subgroup); returns
   // the 64-bit tick. The Shader flavor has no other reach to OpReadClockKHR (the

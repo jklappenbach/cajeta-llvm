@@ -272,6 +272,12 @@ private:
   bool selectDot4AddPackedExpansion(Register ResVReg, SPIRVTypeInst ResType,
                                     MachineInstr &I) const;
 
+  bool selectDot4AddPackedMixed(Register ResVReg, SPIRVTypeInst ResType,
+                                MachineInstr &I) const;
+  bool selectDot4AddPackedMixedExpansion(Register ResVReg,
+                                         SPIRVTypeInst ResType,
+                                         MachineInstr &I) const;
+
   bool selectWavePrefixBitCount(Register ResVReg, SPIRVTypeInst ResType,
                                 MachineInstr &I) const;
 
@@ -3208,6 +3214,101 @@ bool SPIRVInstructionSelector::selectDot4AddPackedExpansion(
   return true;
 }
 
+// Mixed-signedness packed dot (OpSUDot, SPV_KHR_integer_dot_product):
+// operand X packs SIGNED bytes (sign-extended), operand Y packs UNSIGNED
+// bytes (zero-extended) — the OpSUDot operand order. Same shape as
+// selectDot4AddPacked otherwise: dot then OpIAdd of the accumulator.
+bool SPIRVInstructionSelector::selectDot4AddPackedMixed(Register ResVReg,
+                                                        SPIRVTypeInst ResType,
+                                                        MachineInstr &I) const {
+  assert(I.getNumOperands() == 5);
+  assert(I.getOperand(2).isReg());
+  assert(I.getOperand(3).isReg());
+  assert(I.getOperand(4).isReg());
+  MachineBasicBlock &BB = *I.getParent();
+
+  Register Acc = I.getOperand(2).getReg();
+  Register X = I.getOperand(3).getReg();
+  Register Y = I.getOperand(4).getReg();
+
+  Register Dot = MRI->createVirtualRegister(GR.getRegClass(ResType));
+  auto MIB = BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpSUDot))
+                 .addDef(Dot)
+                 .addUse(GR.getSPIRVTypeID(ResType))
+                 .addUse(X)
+                 .addUse(Y);
+  MIB.addImm(SPIRV::BuiltIn::PackedVectorFormat4x8Bit);
+  MIB.constrainAllUses(TII, TRI, RBI);
+
+  BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpIAddS))
+      .addDef(ResVReg)
+      .addUse(GR.getSPIRVTypeID(ResType))
+      .addUse(Dot)
+      .addUse(Acc)
+      .constrainAllUses(TII, TRI, RBI);
+  return true;
+}
+
+// Pre-1.6 / no-extension fallback for the mixed dot: extract each byte pair
+// (sign-extending X's, zero-extending Y's), multiply as i32, accumulate. The
+// products are NOT masked to 8 bits — a signed*unsigned byte product needs the
+// full width, and the sum is defined modulo 2^32 like OpSUDot's.
+bool SPIRVInstructionSelector::selectDot4AddPackedMixedExpansion(
+    Register ResVReg, SPIRVTypeInst ResType, MachineInstr &I) const {
+  assert(I.getNumOperands() == 5);
+  assert(I.getOperand(2).isReg());
+  assert(I.getOperand(3).isReg());
+  assert(I.getOperand(4).isReg());
+  MachineBasicBlock &BB = *I.getParent();
+
+  Register Acc = I.getOperand(2).getReg();
+  Register X = I.getOperand(3).getReg();
+  Register Y = I.getOperand(4).getReg();
+
+  SPIRVTypeInst EltType = GR.getOrCreateSPIRVIntegerType(8, I, TII);
+  bool ZeroAsNull = !STI.isShader();
+  for (unsigned i = 0; i < 4; i++) {
+    Register AElt = MRI->createVirtualRegister(&SPIRV::IDRegClass);
+    BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpBitFieldSExtract))
+        .addDef(AElt)
+        .addUse(GR.getSPIRVTypeID(ResType))
+        .addUse(X)
+        .addUse(GR.getOrCreateConstInt(i * 8, I, EltType, TII, ZeroAsNull))
+        .addUse(GR.getOrCreateConstInt(8, I, EltType, TII, ZeroAsNull))
+        .constrainAllUses(TII, TRI, RBI);
+
+    Register BElt = MRI->createVirtualRegister(&SPIRV::IDRegClass);
+    BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpBitFieldUExtract))
+        .addDef(BElt)
+        .addUse(GR.getSPIRVTypeID(ResType))
+        .addUse(Y)
+        .addUse(GR.getOrCreateConstInt(i * 8, I, EltType, TII, ZeroAsNull))
+        .addUse(GR.getOrCreateConstInt(8, I, EltType, TII, ZeroAsNull))
+        .constrainAllUses(TII, TRI, RBI);
+
+    Register Mul = MRI->createVirtualRegister(&SPIRV::IDRegClass);
+    BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpIMulS))
+        .addDef(Mul)
+        .addUse(GR.getSPIRVTypeID(ResType))
+        .addUse(AElt)
+        .addUse(BElt)
+        .constrainAllUses(TII, TRI, RBI);
+
+    Register Sum =
+        i < 3 ? MRI->createVirtualRegister(&SPIRV::IDRegClass) : ResVReg;
+    BuildMI(BB, I, I.getDebugLoc(), TII.get(SPIRV::OpIAddS))
+        .addDef(Sum)
+        .addUse(GR.getSPIRVTypeID(ResType))
+        .addUse(Acc)
+        .addUse(Mul)
+        .constrainAllUses(TII, TRI, RBI);
+
+    Acc = Sum;
+  }
+
+  return true;
+}
+
 /// Transform saturate(x) to clamp(x, 0.0f, 1.0f) as SPIRV
 /// does not have a saturate builtin.
 bool SPIRVInstructionSelector::selectSaturate(Register ResVReg,
@@ -5125,6 +5226,11 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
         STI.isAtLeastSPIRVVer(VersionTuple(1, 6)))
       return selectDot4AddPacked<false>(ResVReg, ResType, I);
     return selectDot4AddPackedExpansion<false>(ResVReg, ResType, I);
+  case Intrinsic::spv_dot4add_su8packed:
+    if (STI.canUseExtension(SPIRV::Extension::SPV_KHR_integer_dot_product) ||
+        STI.isAtLeastSPIRVVer(VersionTuple(1, 6)))
+      return selectDot4AddPackedMixed(ResVReg, ResType, I);
+    return selectDot4AddPackedMixedExpansion(ResVReg, ResType, I);
   case Intrinsic::spv_read_clock:
     // result = OpReadClockKHR type scope  (the Shader-flavor reach to the clock;
     // the OpReadClockKHR builtin path is OpenCL-only). Operand 2 = Scope const.

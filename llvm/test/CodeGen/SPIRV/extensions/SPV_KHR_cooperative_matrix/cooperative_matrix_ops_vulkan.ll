@@ -27,7 +27,7 @@
 ; WITHOUT it, integer components multiply as unsigned — int8 -1 reads as 255
 ; (the wrong-values GEMM measured on RADV 2026-08-25) — so this CHECK is the
 ; one that must FIRE for signed integer matmuls.
-; CHECK: %[[#CI:]] = OpCooperativeMatrixMulAddKHR %[[#]] %[[#IA:]] %[[#IB:]] %[[#IC0:]] 15
+; CHECK: %[[#CI:]] = OpCooperativeMatrixMulAddKHR %[[#]] %[[#IA:]] %[[#IB:]] %[[#IC0:]] MatrixASignedComponentsKHR|MatrixBSignedComponentsKHR|MatrixCSignedComponentsKHR|MatrixResultSignedComponentsKHR
 ; CHECK: OpCooperativeMatrixStoreKHR %[[#]] %[[#CI]]
 
 define spir_func void @matmul_tile(ptr %pa, ptr %pb, ptr %pc) {

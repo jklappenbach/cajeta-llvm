@@ -445,4 +445,10 @@ def int_spv_rsqrt : DefaultAttrsIntrinsic<[LLVMMatchType<0>], [llvm_anyfloat_ty]
                 [llvm_any_ty, llvm_any_ty, llvm_any_ty, llvm_i32_ty]>;
   def int_spv_cooperative_matrix_splat
     : Intrinsic<[llvm_any_ty], [llvm_any_ty]>;
+  // times.scalar: result = OpMatrixTimesScalar matrix scalar  (NoContraction)
+  // fadd:         result = OpFAdd matrix matrix               (NoContraction)
+  def int_spv_cooperative_matrix_times_scalar
+    : Intrinsic<[llvm_any_ty], [LLVMMatchType<0>, llvm_anyfloat_ty]>;
+  def int_spv_cooperative_matrix_fadd
+    : Intrinsic<[llvm_any_ty], [LLVMMatchType<0>, LLVMMatchType<0>]>;
 }

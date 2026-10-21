@@ -4947,6 +4947,19 @@ bool SPIRVInstructionSelector::selectIntrinsic(Register ResVReg,
     // OpCompositeConstruct from a scalar broadcasts the accumulator.
     return selectOpWithSrcs(ResVReg, ResType, I, {I.getOperand(2).getReg()},
                             SPIRV::OpCompositeConstruct);
+  case Intrinsic::spv_cooperative_matrix_times_scalar:
+  case Intrinsic::spv_cooperative_matrix_fadd: {
+    // Decorated NoContraction: a driver may otherwise fuse the pair into an fma.
+    bool Scale = cast<GIntrinsic>(I).getIntrinsicID() ==
+                 Intrinsic::spv_cooperative_matrix_times_scalar;
+    if (!selectOpWithSrcs(ResVReg, ResType, I,
+                          {I.getOperand(2).getReg(), I.getOperand(3).getReg()},
+                          Scale ? SPIRV::OpMatrixTimesScalar
+                                : SPIRV::OpFAddCoopMatrix))
+      return false;
+    buildOpDecorate(ResVReg, I, TII, SPIRV::Decoration::NoContraction, {});
+    return true;
+  }
   case Intrinsic::spv_unref_global:
   case Intrinsic::spv_init_global: {
     MachineInstr *MI = MRI->getVRegDef(I.getOperand(1).getReg());

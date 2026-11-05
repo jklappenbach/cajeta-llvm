@@ -24,6 +24,7 @@
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
@@ -1341,10 +1342,9 @@ static VPIRValue *tryToFoldLiveIns(VPSingleDefRecipe &R,
 }
 
 /// Try to simplify logical and bitwise recipes in \p Def.
-static bool simplifyLogicalRecipe(VPSingleDefRecipe *Def,
+static bool simplifyLogicalRecipe(VPSingleDefRecipe *Def, VPlan *Plan,
                                   VPTypeAnalysis &TypeInfo, VPBuilder &Builder,
                                   bool CanCreateNewRecipe) {
-  VPlan *Plan = Def->getParent()->getPlan();
 
   // Simplify (X && Y) | (X && !Y) -> X.
   // TODO: Split up into simpler, modular combines: (X && Y) | (X && Z) into X
@@ -1471,9 +1471,10 @@ static bool simplifyLogicalRecipe(VPSingleDefRecipe *Def,
   return false;
 }
 
-/// Try to simplify VPSingleDefRecipe \p Def.
-static void simplifyRecipe(VPSingleDefRecipe *Def, VPTypeAnalysis &TypeInfo) {
-  VPlan *Plan = Def->getParent()->getPlan();
+/// Try to simplify VPSingleDefRecipe \p Def of \p Plan. The plan is passed in:
+/// VPBlockBase::getPlan() walks to the plan entry, and once per recipe is quadratic.
+static void simplifyRecipe(VPSingleDefRecipe *Def, VPlan *Plan,
+                           VPTypeAnalysis &TypeInfo) {
 
   // Simplification of live-in IR values for SingleDef recipes using
   // InstSimplifyFolder.
@@ -1541,7 +1542,7 @@ static void simplifyRecipe(VPSingleDefRecipe *Def, VPTypeAnalysis &TypeInfo) {
 #endif
   }
 
-  if (simplifyLogicalRecipe(Def, TypeInfo, Builder, CanCreateNewRecipe))
+  if (simplifyLogicalRecipe(Def, Plan, TypeInfo, Builder, CanCreateNewRecipe))
     return;
 
   VPValue *X, *Y, *C;
@@ -1857,7 +1858,7 @@ void VPlanTransforms::simplifyRecipes(VPlan &Plan) {
   for (VPBasicBlock *VPBB : VPBlockUtils::blocksOnly<VPBasicBlock>(RPOT)) {
     for (VPRecipeBase &R : make_early_inc_range(*VPBB))
       if (auto *Def = dyn_cast<VPSingleDefRecipe>(&R))
-        simplifyRecipe(Def, TypeInfo);
+        simplifyRecipe(Def, &Plan, TypeInfo);
   }
 }
 
@@ -2434,7 +2435,19 @@ void VPlanTransforms::clearReductionWrapFlags(VPlan &Plan) {
 }
 
 namespace {
+/// The type analysis of the plan cse() is running over, or null. Hashing and
+/// comparing then neither walk to the plan entry per recipe nor rebuild one.
+static thread_local VPTypeAnalysis *CSETypeInfo = nullptr;
+
 struct VPCSEDenseMapInfo : public DenseMapInfo<VPSingleDefRecipe *> {
+  /// The type analysis for \p Def: cse()'s, else a fresh one in \p Local.
+  static VPTypeAnalysis &typeInfoFor(const VPSingleDefRecipe *Def,
+                                     std::optional<VPTypeAnalysis> &Local) {
+    if (CSETypeInfo)
+      return *CSETypeInfo;
+    return Local.emplace(*Def->getParent()->getPlan());
+  }
+
   static bool isSentinel(const VPSingleDefRecipe *Def) {
     return Def == getEmptyKey() || Def == getTombstoneKey();
   }
@@ -2477,8 +2490,8 @@ struct VPCSEDenseMapInfo : public DenseMapInfo<VPSingleDefRecipe *> {
 
   /// Hash the underlying data of \p Def.
   static unsigned getHashValue(const VPSingleDefRecipe *Def) {
-    const VPlan *Plan = Def->getParent()->getPlan();
-    VPTypeAnalysis TypeInfo(*Plan);
+    std::optional<VPTypeAnalysis> Local;
+    VPTypeAnalysis &TypeInfo = typeInfoFor(Def, Local);
     hash_code Result = hash_combine(
         Def->getVPRecipeID(), getOpcodeOrIntrinsicID(Def),
         getGEPSourceElementType(Def), TypeInfo.inferScalarType(Def),
@@ -2521,8 +2534,8 @@ struct VPCSEDenseMapInfo : public DenseMapInfo<VPSingleDefRecipe *> {
          (RegionR && RegionR->isReplicator())) &&
         L->getParent() != R->getParent())
       return false;
-    const VPlan *Plan = L->getParent()->getPlan();
-    VPTypeAnalysis TypeInfo(*Plan);
+    std::optional<VPTypeAnalysis> Local;
+    VPTypeAnalysis &TypeInfo = typeInfoFor(L, Local);
     return TypeInfo.inferScalarType(L) == TypeInfo.inferScalarType(R);
   }
 };
@@ -2532,6 +2545,9 @@ struct VPCSEDenseMapInfo : public DenseMapInfo<VPSingleDefRecipe *> {
 /// Plan.
 void VPlanTransforms::cse(VPlan &Plan) {
   VPDominatorTree VPDT(Plan);
+  VPTypeAnalysis TypeInfo(Plan);
+  CSETypeInfo = &TypeInfo;
+  llvm::scope_exit Reset([] { CSETypeInfo = nullptr; });
   DenseMap<VPSingleDefRecipe *, VPSingleDefRecipe *, VPCSEDenseMapInfo> CSEMap;
 
   ReversePostOrderTraversal<VPBlockDeepTraversalWrapper<VPBlockBase *>> RPOT(

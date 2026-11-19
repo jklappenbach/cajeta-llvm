@@ -2349,7 +2349,15 @@ define bfloat @test_fmaximum_bf16(bfloat %x, bfloat %y) nounwind {
 ; AVX512BF16-NEXT:    vpternlogd {{.*#+}} xmm0 = xmm0 & (xmm1 | m32bcst)
 ; AVX512BF16-NEXT:    vcmpunordss %xmm1, %xmm1, %k1
 ; AVX512BF16-NEXT:    vmovss %xmm1, %xmm0, %xmm0 {%k1}
-; AVX512BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; AVX512BF16-NEXT:    vmovd %xmm0, %eax
+; AVX512BF16-NEXT:    btl $16, %eax
+; AVX512BF16-NEXT:    movl %eax, %ecx
+; AVX512BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512BF16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512BF16-NEXT:    cmovnpl %ecx, %eax
+; AVX512BF16-NEXT:    shrl $16, %eax
+; AVX512BF16-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
 ; AVX512BF16-NEXT:    retq
 ;
 ; AVX10_2-LABEL: test_fmaximum_bf16:
@@ -2361,7 +2369,15 @@ define bfloat @test_fmaximum_bf16(bfloat %x, bfloat %y) nounwind {
 ; AVX10_2-NEXT:    shll $16, %eax
 ; AVX10_2-NEXT:    vmovd %eax, %xmm1
 ; AVX10_2-NEXT:    vminmaxss $5, %xmm0, %xmm1
-; AVX10_2-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; AVX10_2-NEXT:    vmovd %xmm0, %eax
+; AVX10_2-NEXT:    btl $16, %eax
+; AVX10_2-NEXT:    movl %eax, %ecx
+; AVX10_2-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX10_2-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX10_2-NEXT:    vucomiss %xmm0, %xmm0
+; AVX10_2-NEXT:    cmovnpl %ecx, %eax
+; AVX10_2-NEXT:    shrl $16, %eax
+; AVX10_2-NEXT:    vmovw %eax, %xmm0
 ; AVX10_2-NEXT:    retq
 ;
 ; X86-LABEL: test_fmaximum_bf16:
@@ -3036,7 +3052,15 @@ define bfloat @test_fminimum_bf16(bfloat %x, bfloat %y) nounwind {
 ; AVX512BF16-NEXT:    vpternlogd {{.*#+}} xmm0 = xmm0 | (xmm1 & m32bcst)
 ; AVX512BF16-NEXT:    vcmpunordss %xmm1, %xmm1, %k1
 ; AVX512BF16-NEXT:    vmovss %xmm1, %xmm0, %xmm0 {%k1}
-; AVX512BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; AVX512BF16-NEXT:    vmovd %xmm0, %eax
+; AVX512BF16-NEXT:    btl $16, %eax
+; AVX512BF16-NEXT:    movl %eax, %ecx
+; AVX512BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512BF16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512BF16-NEXT:    cmovnpl %ecx, %eax
+; AVX512BF16-NEXT:    shrl $16, %eax
+; AVX512BF16-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
 ; AVX512BF16-NEXT:    retq
 ;
 ; AVX10_2-LABEL: test_fminimum_bf16:
@@ -3048,7 +3072,15 @@ define bfloat @test_fminimum_bf16(bfloat %x, bfloat %y) nounwind {
 ; AVX10_2-NEXT:    shll $16, %eax
 ; AVX10_2-NEXT:    vmovd %eax, %xmm1
 ; AVX10_2-NEXT:    vminmaxss $4, %xmm0, %xmm1
-; AVX10_2-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; AVX10_2-NEXT:    vmovd %xmm0, %eax
+; AVX10_2-NEXT:    btl $16, %eax
+; AVX10_2-NEXT:    movl %eax, %ecx
+; AVX10_2-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX10_2-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX10_2-NEXT:    vucomiss %xmm0, %xmm0
+; AVX10_2-NEXT:    cmovnpl %ecx, %eax
+; AVX10_2-NEXT:    shrl $16, %eax
+; AVX10_2-NEXT:    vmovw %eax, %xmm0
 ; AVX10_2-NEXT:    retq
 ;
 ; X86-LABEL: test_fminimum_bf16:

@@ -16,7 +16,15 @@ define bfloat @fuse_bf16(bfloat %a, bfloat %b, bfloat %c) nounwind {
 ; AVX10_2-NEXT:    shll $16, %eax
 ; AVX10_2-NEXT:    vmovd %eax, %xmm2
 ; AVX10_2-NEXT:    vfmadd213ss {{.*#+}} xmm2 = (xmm1 * xmm2) + xmm0
-; AVX10_2-NEXT:    vcvtneps2bf16 %xmm2, %xmm0
+; AVX10_2-NEXT:    vmovd %xmm2, %eax
+; AVX10_2-NEXT:    btl $16, %eax
+; AVX10_2-NEXT:    movl %eax, %ecx
+; AVX10_2-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX10_2-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX10_2-NEXT:    vucomiss %xmm2, %xmm2
+; AVX10_2-NEXT:    cmovnpl %ecx, %eax
+; AVX10_2-NEXT:    shrl $16, %eax
+; AVX10_2-NEXT:    vmovw %eax, %xmm0
 ; AVX10_2-NEXT:    retq
 ;
 ; AVX512BF16-LABEL: fuse_bf16:
@@ -31,7 +39,15 @@ define bfloat @fuse_bf16(bfloat %a, bfloat %b, bfloat %c) nounwind {
 ; AVX512BF16-NEXT:    shll $16, %eax
 ; AVX512BF16-NEXT:    vmovd %eax, %xmm2
 ; AVX512BF16-NEXT:    vfmadd213ss {{.*#+}} xmm2 = (xmm1 * xmm2) + xmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %xmm2, %xmm0
+; AVX512BF16-NEXT:    vmovd %xmm2, %eax
+; AVX512BF16-NEXT:    btl $16, %eax
+; AVX512BF16-NEXT:    movl %eax, %ecx
+; AVX512BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512BF16-NEXT:    vucomiss %xmm2, %xmm2
+; AVX512BF16-NEXT:    cmovnpl %ecx, %eax
+; AVX512BF16-NEXT:    shrl $16, %eax
+; AVX512BF16-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
 ; AVX512BF16-NEXT:    retq
 ;
 ; AVXNECONVERT-LABEL: fuse_bf16:
@@ -44,14 +60,27 @@ define bfloat @fuse_bf16(bfloat %a, bfloat %b, bfloat %c) nounwind {
 ; AVXNECONVERT-NEXT:    shll $16, %ecx
 ; AVXNECONVERT-NEXT:    vmovd %ecx, %xmm1
 ; AVXNECONVERT-NEXT:    vmulss %xmm0, %xmm1, %xmm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0
 ; AVXNECONVERT-NEXT:    vmovd %xmm0, %ecx
-; AVXNECONVERT-NEXT:    shll $16, %ecx
+; AVXNECONVERT-NEXT:    btl $16, %ecx
+; AVXNECONVERT-NEXT:    movl %ecx, %edx
+; AVXNECONVERT-NEXT:    adcl $32767, %edx # imm = 0x7FFF
+; AVXNECONVERT-NEXT:    orl $4194304, %ecx # imm = 0x400000
+; AVXNECONVERT-NEXT:    vucomiss %xmm0, %xmm0
+; AVXNECONVERT-NEXT:    cmovnpl %edx, %ecx
+; AVXNECONVERT-NEXT:    andl $-65536, %ecx # imm = 0xFFFF0000
 ; AVXNECONVERT-NEXT:    vmovd %ecx, %xmm0
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm1
 ; AVXNECONVERT-NEXT:    vaddss %xmm1, %xmm0, %xmm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0
+; AVXNECONVERT-NEXT:    vmovd %xmm0, %eax
+; AVXNECONVERT-NEXT:    btl $16, %eax
+; AVXNECONVERT-NEXT:    movl %eax, %ecx
+; AVXNECONVERT-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVXNECONVERT-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVXNECONVERT-NEXT:    vucomiss %xmm0, %xmm0
+; AVXNECONVERT-NEXT:    cmovnpl %ecx, %eax
+; AVXNECONVERT-NEXT:    shrl $16, %eax
+; AVXNECONVERT-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
 ; AVXNECONVERT-NEXT:    retq
 entry:
   %m = fmul contract bfloat %a, %b
@@ -72,13 +101,28 @@ define <8 x bfloat> @fuse_v8bf16(<8 x bfloat> %x, <8 x bfloat> %y, <8 x bfloat> 
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; AVX512BF16-NEXT:    vpslld $16, %ymm0, %ymm0
 ; AVX512BF16-NEXT:    vmulps %ymm1, %ymm0, %ymm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
-; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
-; AVX512BF16-NEXT:    vpslld $16, %ymm0, %ymm0
+; AVX512BF16-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} ymm3 = [1,1,1,1,1,1,1,1]
+; AVX512BF16-NEXT:    vpand %ymm3, %ymm1, %ymm1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} ymm4 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVX512BF16-NEXT:    vpaddd %ymm4, %ymm0, %ymm5
+; AVX512BF16-NEXT:    vpaddd %ymm5, %ymm1, %ymm1
+; AVX512BF16-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} ymm5 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVX512BF16-NEXT:    vpord %ymm5, %ymm0, %ymm1 {%k1}
+; AVX512BF16-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; AVX512BF16-NEXT:    vpblendw {{.*#+}} ymm0 = ymm0[0],ymm1[1],ymm0[2],ymm1[3],ymm0[4],ymm1[5],ymm0[6],ymm1[7],ymm0[8],ymm1[9],ymm0[10],ymm1[11],ymm0[12],ymm1[13],ymm0[14],ymm1[15]
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm2[0],zero,xmm2[1],zero,xmm2[2],zero,xmm2[3],zero,xmm2[4],zero,xmm2[5],zero,xmm2[6],zero,xmm2[7],zero
 ; AVX512BF16-NEXT:    vpslld $16, %ymm1, %ymm1
 ; AVX512BF16-NEXT:    vaddps %ymm1, %ymm0, %ymm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX512BF16-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX512BF16-NEXT:    vpand %ymm3, %ymm1, %ymm1
+; AVX512BF16-NEXT:    vpaddd %ymm4, %ymm0, %ymm2
+; AVX512BF16-NEXT:    vpaddd %ymm2, %ymm1, %ymm1
+; AVX512BF16-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX512BF16-NEXT:    vpord %ymm5, %ymm0, %ymm1 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX512BF16-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX512BF16-NEXT:    vzeroupper
 ; AVX512BF16-NEXT:    retq
 ;
@@ -146,72 +190,92 @@ define <8 x bfloat> @fuse_v8bf16(<8 x bfloat> %x, <8 x bfloat> %y, <8 x bfloat> 
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm0
 ; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm0 = xmm4[0,1,2],xmm0[0]
 ; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm3, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vmulps %ymm1, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
-; AVXNECONVERT-NEXT:    vpextrw $5, %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmulps %ymm1, %ymm0, %ymm4
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm4, %ymm1
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm0 = [1,1,1,1,1,1,1,1]
+; AVXNECONVERT-NEXT:    vpand %ymm0, %ymm1, %ymm3
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm4, %ymm5
+; AVXNECONVERT-NEXT:    vpaddd %ymm5, %ymm3, %ymm5
+; AVXNECONVERT-NEXT:    vbroadcastss {{.*#+}} ymm3 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVXNECONVERT-NEXT:    vorps %ymm3, %ymm4, %ymm6
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm4, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vblendvps %ymm4, %ymm6, %ymm5, %ymm4
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm4, %xmm5
+; AVXNECONVERT-NEXT:    vpextrw $2, %xmm5, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm1
-; AVXNECONVERT-NEXT:    vpextrw $4, %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
+; AVXNECONVERT-NEXT:    vpextrw $0, %xmm5, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],xmm3[2,3]
-; AVXNECONVERT-NEXT:    vpextrw $6, %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm7[0],xmm6[0],xmm7[2,3]
+; AVXNECONVERT-NEXT:    vpextrw $4, %xmm5, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],xmm3[0],xmm1[3]
-; AVXNECONVERT-NEXT:    vpextrw $7, %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm6[0,1],xmm7[0],xmm6[3]
+; AVXNECONVERT-NEXT:    vpextrw $6, %xmm5, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],xmm3[0]
-; AVXNECONVERT-NEXT:    vpextrw $1, %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm5 = xmm6[0,1,2],xmm5[0]
+; AVXNECONVERT-NEXT:    vpextrw $2, %xmm4, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vmovd %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
+; AVXNECONVERT-NEXT:    vmovd %xmm4, %eax
+; AVXNECONVERT-NEXT:    shll $16, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm7[0],xmm6[0],xmm7[2,3]
+; AVXNECONVERT-NEXT:    vpextrw $4, %xmm4, %eax
+; AVXNECONVERT-NEXT:    shll $16, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm6[0,1],xmm7[0],xmm6[3]
+; AVXNECONVERT-NEXT:    vpextrw $6, %xmm4, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
-; AVXNECONVERT-NEXT:    vpextrw $2, %xmm0, %eax
-; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],xmm4[0],xmm3[3]
-; AVXNECONVERT-NEXT:    vpextrw $3, %xmm0, %eax
-; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm0
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm0 = xmm3[0,1,2],xmm0[0]
-; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm4 = xmm6[0,1,2],xmm4[0]
+; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm5, %ymm4, %ymm4
 ; AVXNECONVERT-NEXT:    vpextrw $5, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm1
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
 ; AVXNECONVERT-NEXT:    vpextrw $4, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],xmm3[2,3]
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm5 = xmm6[0],xmm5[0],xmm6[2,3]
 ; AVXNECONVERT-NEXT:    vpextrw $6, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],xmm3[0],xmm1[3]
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],xmm6[0],xmm5[3]
 ; AVXNECONVERT-NEXT:    vpextrw $7, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],xmm3[0]
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1,2],xmm6[0]
 ; AVXNECONVERT-NEXT:    vpextrw $1, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
 ; AVXNECONVERT-NEXT:    vmovd %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm7[0],xmm6[0],xmm7[2,3]
 ; AVXNECONVERT-NEXT:    vpextrw $2, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],xmm4[0],xmm3[3]
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm6[0,1],xmm7[0],xmm6[3]
 ; AVXNECONVERT-NEXT:    vpextrw $3, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm2
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm2 = xmm3[0,1,2],xmm2[0]
-; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm1, %ymm2, %ymm1
-; AVXNECONVERT-NEXT:    vaddps %ymm1, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm2 = xmm6[0,1,2],xmm2[0]
+; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm5, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vaddps %ymm2, %ymm4, %ymm2
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm2, %ymm4
+; AVXNECONVERT-NEXT:    vpand %ymm0, %ymm4, %ymm0
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm2, %ymm1
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vorps %ymm3, %ymm2, %ymm1
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm2, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vblendvps %ymm2, %ymm1, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVXNECONVERT-NEXT:    vpackusdw %xmm1, %xmm0, %xmm0
 ; AVXNECONVERT-NEXT:    vzeroupper
 ; AVXNECONVERT-NEXT:    retq
 entry:
@@ -233,45 +297,90 @@ define <16 x bfloat> @fuse_v16bf16(<16 x bfloat> %x, <16 x bfloat> %y, <16 x bfl
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm0 = ymm0[0],zero,ymm0[1],zero,ymm0[2],zero,ymm0[3],zero,ymm0[4],zero,ymm0[5],zero,ymm0[6],zero,ymm0[7],zero,ymm0[8],zero,ymm0[9],zero,ymm0[10],zero,ymm0[11],zero,ymm0[12],zero,ymm0[13],zero,ymm0[14],zero,ymm0[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm0, %zmm0
 ; AVX512BF16-NEXT:    vmulps %zmm1, %zmm0, %zmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
-; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm0 = ymm0[0],zero,ymm0[1],zero,ymm0[2],zero,ymm0[3],zero,ymm0[4],zero,ymm0[5],zero,ymm0[6],zero,ymm0[7],zero,ymm0[8],zero,ymm0[9],zero,ymm0[10],zero,ymm0[11],zero,ymm0[12],zero,ymm0[13],zero,ymm0[14],zero,ymm0[15],zero
+; AVX512BF16-NEXT:    vpsrld $16, %zmm0, %zmm1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm3 = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+; AVX512BF16-NEXT:    vpandd %zmm3, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm4 = [32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767]
+; AVX512BF16-NEXT:    vpaddd %zmm4, %zmm0, %zmm5
+; AVX512BF16-NEXT:    vpaddd %zmm5, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm5 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVX512BF16-NEXT:    vpord %zmm5, %zmm0, %zmm1 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm1, %zmm0
 ; AVX512BF16-NEXT:    vpslld $16, %zmm0, %zmm0
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm1 = ymm2[0],zero,ymm2[1],zero,ymm2[2],zero,ymm2[3],zero,ymm2[4],zero,ymm2[5],zero,ymm2[6],zero,ymm2[7],zero,ymm2[8],zero,ymm2[9],zero,ymm2[10],zero,ymm2[11],zero,ymm2[12],zero,ymm2[13],zero,ymm2[14],zero,ymm2[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm1, %zmm1
 ; AVX512BF16-NEXT:    vaddps %zmm1, %zmm0, %zmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
+; AVX512BF16-NEXT:    vpsrld $16, %zmm0, %zmm1
+; AVX512BF16-NEXT:    vpandd %zmm3, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vpaddd %zmm4, %zmm0, %zmm2
+; AVX512BF16-NEXT:    vpaddd %zmm2, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; AVX512BF16-NEXT:    vpord %zmm5, %zmm0, %zmm1 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm1, %zmm0
+; AVX512BF16-NEXT:    vpmovdw %zmm0, %ymm0
 ; AVX512BF16-NEXT:    retq
 ;
 ; AVXNECONVERT-LABEL: fuse_v16bf16:
 ; AVXNECONVERT:       # %bb.0: # %entry
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm1, %xmm3
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm0, %xmm4
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm4 = xmm4[0],zero,xmm4[1],zero,xmm4[2],zero,xmm4[3],zero,xmm4[4],zero,xmm4[5],zero,xmm4[6],zero,xmm4[7],zero
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm4 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm4, %ymm4
-; AVXNECONVERT-NEXT:    vmulps %ymm3, %ymm4, %ymm3
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm3, %xmm3
+; AVXNECONVERT-NEXT:    vmulps %ymm3, %ymm4, %ymm6
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm6, %ymm4
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm3 = [1,1,1,1,1,1,1,1]
+; AVXNECONVERT-NEXT:    vpand %ymm3, %ymm4, %ymm5
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm4 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm6, %ymm7
+; AVXNECONVERT-NEXT:    vpaddd %ymm5, %ymm7, %ymm7
+; AVXNECONVERT-NEXT:    vbroadcastss {{.*#+}} ymm5 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVXNECONVERT-NEXT:    vorps %ymm5, %ymm6, %ymm8
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm6, %ymm6, %ymm6
+; AVXNECONVERT-NEXT:    vblendvps %ymm6, %ymm8, %ymm7, %ymm6
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm1, %xmm1
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm0, %xmm0
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm0, %ymm0
 ; AVXNECONVERT-NEXT:    vmulps %ymm1, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm2[0],zero,xmm2[1],zero,xmm2[2],zero,xmm2[3],zero,xmm2[4],zero,xmm2[5],zero,xmm2[6],zero,xmm2[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
-; AVXNECONVERT-NEXT:    vaddps %ymm1, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm2, %xmm2
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVXNECONVERT-NEXT:    vpand %ymm3, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm0, %ymm7
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm7, %ymm1
+; AVXNECONVERT-NEXT:    vorps %ymm5, %ymm0, %ymm7
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vblendvps %ymm0, %ymm7, %ymm1, %ymm0
+; AVXNECONVERT-NEXT:    vpxor %xmm1, %xmm1, %xmm1
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm0 = ymm1[0],ymm0[1],ymm1[2],ymm0[3],ymm1[4],ymm0[5],ymm1[6],ymm0[7],ymm1[8],ymm0[9],ymm1[10],ymm0[11],ymm1[12],ymm0[13],ymm1[14],ymm0[15]
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm2, %xmm7
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm7 = xmm7[0],zero,xmm7[1],zero,xmm7[2],zero,xmm7[3],zero,xmm7[4],zero,xmm7[5],zero,xmm7[6],zero,xmm7[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm7, %ymm7
+; AVXNECONVERT-NEXT:    vaddps %ymm7, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm7
+; AVXNECONVERT-NEXT:    vpand %ymm3, %ymm7, %ymm7
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm0, %ymm8
+; AVXNECONVERT-NEXT:    vpaddd %ymm7, %ymm8, %ymm7
+; AVXNECONVERT-NEXT:    vorps %ymm5, %ymm0, %ymm8
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vblendvps %ymm0, %ymm8, %ymm7, %ymm0
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm1 = ymm1[0],ymm6[1],ymm1[2],ymm6[3],ymm1[4],ymm6[5],ymm1[6],ymm6[7],ymm1[8],ymm6[9],ymm1[10],ymm6[11],ymm1[12],ymm6[13],ymm1[14],ymm6[15]
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = xmm2[0],zero,xmm2[1],zero,xmm2[2],zero,xmm2[3],zero,xmm2[4],zero,xmm2[5],zero,xmm2[6],zero,xmm2[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
 ; AVXNECONVERT-NEXT:    vaddps %ymm2, %ymm1, %ymm1
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm1, %xmm1
-; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm1, %ymm2
+; AVXNECONVERT-NEXT:    vpand %ymm3, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm1, %ymm3
+; AVXNECONVERT-NEXT:    vpaddd %ymm2, %ymm3, %ymm2
+; AVXNECONVERT-NEXT:    vorps %ymm5, %ymm1, %ymm3
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm1, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vblendvps %ymm1, %ymm3, %ymm2, %ymm1
+; AVXNECONVERT-NEXT:    vperm2f128 {{.*#+}} ymm2 = ymm1[2,3],ymm0[2,3]
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm0, %ymm1, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpackusdw %ymm2, %ymm0, %ymm0
 ; AVXNECONVERT-NEXT:    retq
 entry:
   %m = fmul contract <16 x bfloat> %x, %y
@@ -294,87 +403,170 @@ define <32 x bfloat> @fuse_v32bf16(<32 x bfloat> %x, <32 x bfloat> %y, <32 x bfl
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm4 = ymm4[0],zero,ymm4[1],zero,ymm4[2],zero,ymm4[3],zero,ymm4[4],zero,ymm4[5],zero,ymm4[6],zero,ymm4[7],zero,ymm4[8],zero,ymm4[9],zero,ymm4[10],zero,ymm4[11],zero,ymm4[12],zero,ymm4[13],zero,ymm4[14],zero,ymm4[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm4, %zmm4
 ; AVX512BF16-NEXT:    vmulps %zmm3, %zmm4, %zmm3
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm3, %ymm3
+; AVX512BF16-NEXT:    vpsrld $16, %zmm3, %zmm4
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm5 = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+; AVX512BF16-NEXT:    vpandd %zmm5, %zmm4, %zmm4
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm6 = [32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767]
+; AVX512BF16-NEXT:    vpaddd %zmm6, %zmm3, %zmm7
+; AVX512BF16-NEXT:    vpaddd %zmm4, %zmm7, %zmm4
+; AVX512BF16-NEXT:    vcmpunordps %zmm3, %zmm3, %k1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm7 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVX512BF16-NEXT:    vpord %zmm7, %zmm3, %zmm4 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm4, %zmm3
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero,ymm1[8],zero,ymm1[9],zero,ymm1[10],zero,ymm1[11],zero,ymm1[12],zero,ymm1[13],zero,ymm1[14],zero,ymm1[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm1, %zmm1
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm0 = ymm0[0],zero,ymm0[1],zero,ymm0[2],zero,ymm0[3],zero,ymm0[4],zero,ymm0[5],zero,ymm0[6],zero,ymm0[7],zero,ymm0[8],zero,ymm0[9],zero,ymm0[10],zero,ymm0[11],zero,ymm0[12],zero,ymm0[13],zero,ymm0[14],zero,ymm0[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm0, %zmm0
 ; AVX512BF16-NEXT:    vmulps %zmm1, %zmm0, %zmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
-; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm0 = ymm0[0],zero,ymm0[1],zero,ymm0[2],zero,ymm0[3],zero,ymm0[4],zero,ymm0[5],zero,ymm0[6],zero,ymm0[7],zero,ymm0[8],zero,ymm0[9],zero,ymm0[10],zero,ymm0[11],zero,ymm0[12],zero,ymm0[13],zero,ymm0[14],zero,ymm0[15],zero
+; AVX512BF16-NEXT:    vpsrld $16, %zmm0, %zmm1
+; AVX512BF16-NEXT:    vpandd %zmm5, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vpaddd %zmm6, %zmm0, %zmm4
+; AVX512BF16-NEXT:    vpaddd %zmm1, %zmm4, %zmm1
+; AVX512BF16-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; AVX512BF16-NEXT:    vpord %zmm7, %zmm0, %zmm1 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm1, %zmm0
 ; AVX512BF16-NEXT:    vpslld $16, %zmm0, %zmm0
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm1 = ymm2[0],zero,ymm2[1],zero,ymm2[2],zero,ymm2[3],zero,ymm2[4],zero,ymm2[5],zero,ymm2[6],zero,ymm2[7],zero,ymm2[8],zero,ymm2[9],zero,ymm2[10],zero,ymm2[11],zero,ymm2[12],zero,ymm2[13],zero,ymm2[14],zero,ymm2[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm1, %zmm1
 ; AVX512BF16-NEXT:    vaddps %zmm1, %zmm0, %zmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
-; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm1 = ymm3[0],zero,ymm3[1],zero,ymm3[2],zero,ymm3[3],zero,ymm3[4],zero,ymm3[5],zero,ymm3[6],zero,ymm3[7],zero,ymm3[8],zero,ymm3[9],zero,ymm3[10],zero,ymm3[11],zero,ymm3[12],zero,ymm3[13],zero,ymm3[14],zero,ymm3[15],zero
-; AVX512BF16-NEXT:    vpslld $16, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vpsrld $16, %zmm0, %zmm1
+; AVX512BF16-NEXT:    vpandd %zmm5, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vpaddd %zmm6, %zmm0, %zmm4
+; AVX512BF16-NEXT:    vpaddd %zmm1, %zmm4, %zmm1
+; AVX512BF16-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; AVX512BF16-NEXT:    vpord %zmm7, %zmm0, %zmm1 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm1, %zmm0
+; AVX512BF16-NEXT:    vpmovdw %zmm0, %ymm0
+; AVX512BF16-NEXT:    vpslld $16, %zmm3, %zmm1
 ; AVX512BF16-NEXT:    vextracti64x4 $1, %zmm2, %ymm2
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm2 = ymm2[0],zero,ymm2[1],zero,ymm2[2],zero,ymm2[3],zero,ymm2[4],zero,ymm2[5],zero,ymm2[6],zero,ymm2[7],zero,ymm2[8],zero,ymm2[9],zero,ymm2[10],zero,ymm2[11],zero,ymm2[12],zero,ymm2[13],zero,ymm2[14],zero,ymm2[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm2, %zmm2
 ; AVX512BF16-NEXT:    vaddps %zmm2, %zmm1, %zmm1
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm1, %ymm1
-; AVX512BF16-NEXT:    vinsertf64x4 $1, %ymm1, %zmm0, %zmm0
+; AVX512BF16-NEXT:    vpsrld $16, %zmm1, %zmm2
+; AVX512BF16-NEXT:    vpandd %zmm5, %zmm2, %zmm2
+; AVX512BF16-NEXT:    vpaddd %zmm6, %zmm1, %zmm3
+; AVX512BF16-NEXT:    vpaddd %zmm2, %zmm3, %zmm2
+; AVX512BF16-NEXT:    vcmpunordps %zmm1, %zmm1, %k1
+; AVX512BF16-NEXT:    vpord %zmm7, %zmm1, %zmm2 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm2, %zmm1
+; AVX512BF16-NEXT:    vpmovdw %zmm1, %ymm1
+; AVX512BF16-NEXT:    vinserti64x4 $1, %ymm1, %zmm0, %zmm0
 ; AVX512BF16-NEXT:    retq
 ;
 ; AVXNECONVERT-LABEL: fuse_v32bf16:
 ; AVXNECONVERT:       # %bb.0: # %entry
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm3, %xmm6
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm6 = xmm6[0],zero,xmm6[1],zero,xmm6[2],zero,xmm6[3],zero,xmm6[4],zero,xmm6[5],zero,xmm6[6],zero,xmm6[7],zero
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm6 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm6, %ymm6
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm1, %xmm7
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm7 = xmm7[0],zero,xmm7[1],zero,xmm7[2],zero,xmm7[3],zero,xmm7[4],zero,xmm7[5],zero,xmm7[6],zero,xmm7[7],zero
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm7 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm7, %ymm7
-; AVXNECONVERT-NEXT:    vmulps %ymm6, %ymm7, %ymm6
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm6, %xmm6
+; AVXNECONVERT-NEXT:    vmulps %ymm6, %ymm7, %ymm9
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm9, %ymm7
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm6 = [1,1,1,1,1,1,1,1]
+; AVXNECONVERT-NEXT:    vpand %ymm6, %ymm7, %ymm8
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm7 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVXNECONVERT-NEXT:    vpaddd %ymm7, %ymm9, %ymm10
+; AVXNECONVERT-NEXT:    vpaddd %ymm8, %ymm10, %ymm10
+; AVXNECONVERT-NEXT:    vbroadcastss {{.*#+}} ymm8 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVXNECONVERT-NEXT:    vorps %ymm8, %ymm9, %ymm11
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm9, %ymm9, %ymm9
+; AVXNECONVERT-NEXT:    vblendvps %ymm9, %ymm11, %ymm10, %ymm9
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm3, %xmm3
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm1, %xmm1
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
 ; AVXNECONVERT-NEXT:    vmulps %ymm3, %ymm1, %ymm1
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm1, %xmm1
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm2, %xmm3
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm1, %ymm3
+; AVXNECONVERT-NEXT:    vpand %ymm6, %ymm3, %ymm3
+; AVXNECONVERT-NEXT:    vpaddd %ymm7, %ymm1, %ymm10
+; AVXNECONVERT-NEXT:    vpaddd %ymm3, %ymm10, %ymm3
+; AVXNECONVERT-NEXT:    vorps %ymm1, %ymm8, %ymm10
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm1, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vblendvps %ymm1, %ymm10, %ymm3, %ymm1
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm2[0],zero,xmm2[1],zero,xmm2[2],zero,xmm2[3],zero,xmm2[4],zero,xmm2[5],zero,xmm2[6],zero,xmm2[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm0, %xmm7
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm7 = xmm7[0],zero,xmm7[1],zero,xmm7[2],zero,xmm7[3],zero,xmm7[4],zero,xmm7[5],zero,xmm7[6],zero,xmm7[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm7, %ymm7
-; AVXNECONVERT-NEXT:    vmulps %ymm3, %ymm7, %ymm3
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm3, %xmm3
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm10 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm10, %ymm10
+; AVXNECONVERT-NEXT:    vmulps %ymm3, %ymm10, %ymm3
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm3, %ymm10
+; AVXNECONVERT-NEXT:    vpand %ymm6, %ymm10, %ymm10
+; AVXNECONVERT-NEXT:    vpaddd %ymm7, %ymm3, %ymm11
+; AVXNECONVERT-NEXT:    vpaddd %ymm10, %ymm11, %ymm10
+; AVXNECONVERT-NEXT:    vorps %ymm3, %ymm8, %ymm11
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm3, %ymm3, %ymm3
+; AVXNECONVERT-NEXT:    vblendvps %ymm3, %ymm11, %ymm10, %ymm3
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm2, %xmm2
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = xmm2[0],zero,xmm2[1],zero,xmm2[2],zero,xmm2[3],zero,xmm2[4],zero,xmm2[5],zero,xmm2[6],zero,xmm2[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm0, %xmm0
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm0, %ymm0
 ; AVXNECONVERT-NEXT:    vmulps %ymm2, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = xmm4[0],zero,xmm4[1],zero,xmm4[2],zero,xmm4[3],zero,xmm4[4],zero,xmm4[5],zero,xmm4[6],zero,xmm4[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
-; AVXNECONVERT-NEXT:    vaddps %ymm2, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm4, %xmm3
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
-; AVXNECONVERT-NEXT:    vaddps %ymm3, %ymm2, %ymm2
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm2, %xmm2
-; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = xmm5[0],zero,xmm5[1],zero,xmm5[2],zero,xmm5[3],zero,xmm5[4],zero,xmm5[5],zero,xmm5[6],zero,xmm5[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
-; AVXNECONVERT-NEXT:    vaddps %ymm2, %ymm1, %ymm1
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm1, %xmm1
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = xmm6[0],zero,xmm6[1],zero,xmm6[2],zero,xmm6[3],zero,xmm6[4],zero,xmm6[5],zero,xmm6[6],zero,xmm6[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm2
+; AVXNECONVERT-NEXT:    vpand %ymm6, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vpaddd %ymm7, %ymm0, %ymm10
+; AVXNECONVERT-NEXT:    vpaddd %ymm2, %ymm10, %ymm2
+; AVXNECONVERT-NEXT:    vorps %ymm0, %ymm8, %ymm10
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vblendvps %ymm0, %ymm10, %ymm2, %ymm0
+; AVXNECONVERT-NEXT:    vpxor %xmm2, %xmm2, %xmm2
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm0 = ymm2[0],ymm0[1],ymm2[2],ymm0[3],ymm2[4],ymm0[5],ymm2[6],ymm0[7],ymm2[8],ymm0[9],ymm2[10],ymm0[11],ymm2[12],ymm0[13],ymm2[14],ymm0[15]
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm4, %xmm10
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm10 = xmm10[0],zero,xmm10[1],zero,xmm10[2],zero,xmm10[3],zero,xmm10[4],zero,xmm10[5],zero,xmm10[6],zero,xmm10[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm10, %ymm10
+; AVXNECONVERT-NEXT:    vaddps %ymm0, %ymm10, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm10
+; AVXNECONVERT-NEXT:    vpand %ymm6, %ymm10, %ymm10
+; AVXNECONVERT-NEXT:    vpaddd %ymm7, %ymm0, %ymm11
+; AVXNECONVERT-NEXT:    vpaddd %ymm10, %ymm11, %ymm10
+; AVXNECONVERT-NEXT:    vorps %ymm0, %ymm8, %ymm11
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vblendvps %ymm0, %ymm11, %ymm10, %ymm0
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm3 = ymm2[0],ymm3[1],ymm2[2],ymm3[3],ymm2[4],ymm3[5],ymm2[6],ymm3[7],ymm2[8],ymm3[9],ymm2[10],ymm3[11],ymm2[12],ymm3[13],ymm2[14],ymm3[15]
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm4 = xmm4[0],zero,xmm4[1],zero,xmm4[2],zero,xmm4[3],zero,xmm4[4],zero,xmm4[5],zero,xmm4[6],zero,xmm4[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vaddps %ymm4, %ymm3, %ymm3
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm3, %ymm4
+; AVXNECONVERT-NEXT:    vpand %ymm6, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vpaddd %ymm7, %ymm3, %ymm10
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm10, %ymm4
+; AVXNECONVERT-NEXT:    vorps %ymm3, %ymm8, %ymm10
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm3, %ymm3, %ymm3
+; AVXNECONVERT-NEXT:    vblendvps %ymm3, %ymm10, %ymm4, %ymm3
+; AVXNECONVERT-NEXT:    vperm2f128 {{.*#+}} ymm4 = ymm3[2,3],ymm0[2,3]
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm0, %ymm3, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpackusdw %ymm4, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm1 = ymm2[0],ymm1[1],ymm2[2],ymm1[3],ymm2[4],ymm1[5],ymm2[6],ymm1[7],ymm2[8],ymm1[9],ymm2[10],ymm1[11],ymm2[12],ymm1[13],ymm2[14],ymm1[15]
 ; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm5, %xmm3
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
+; AVXNECONVERT-NEXT:    vaddps %ymm3, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm1, %ymm3
+; AVXNECONVERT-NEXT:    vpand %ymm6, %ymm3, %ymm3
+; AVXNECONVERT-NEXT:    vpaddd %ymm7, %ymm1, %ymm4
+; AVXNECONVERT-NEXT:    vpaddd %ymm3, %ymm4, %ymm3
+; AVXNECONVERT-NEXT:    vorps %ymm1, %ymm8, %ymm4
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm1, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vblendvps %ymm1, %ymm4, %ymm3, %ymm1
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm2 = ymm2[0],ymm9[1],ymm2[2],ymm9[3],ymm2[4],ymm9[5],ymm2[6],ymm9[7],ymm2[8],ymm9[9],ymm2[10],ymm9[11],ymm2[12],ymm9[13],ymm2[14],ymm9[15]
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm5[0],zero,xmm5[1],zero,xmm5[2],zero,xmm5[3],zero,xmm5[4],zero,xmm5[5],zero,xmm5[6],zero,xmm5[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
 ; AVXNECONVERT-NEXT:    vaddps %ymm3, %ymm2, %ymm2
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm2, %xmm2
-; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm2, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm2, %ymm3
+; AVXNECONVERT-NEXT:    vpand %ymm6, %ymm3, %ymm3
+; AVXNECONVERT-NEXT:    vpaddd %ymm7, %ymm2, %ymm4
+; AVXNECONVERT-NEXT:    vpaddd %ymm3, %ymm4, %ymm3
+; AVXNECONVERT-NEXT:    vorps %ymm2, %ymm8, %ymm4
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm2, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vblendvps %ymm2, %ymm4, %ymm3, %ymm2
+; AVXNECONVERT-NEXT:    vperm2f128 {{.*#+}} ymm3 = ymm2[2,3],ymm1[2,3]
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm3, %ymm3
+; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm1, %ymm2, %ymm1
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vpackusdw %ymm3, %ymm1, %ymm1
 ; AVXNECONVERT-NEXT:    retq
 entry:
   %m = fmul contract <32 x bfloat> %x, %y
@@ -395,13 +587,28 @@ define <5 x bfloat> @fuse_v5bf16(<5 x bfloat> %x, <5 x bfloat> %y, <5 x bfloat> 
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; AVX512BF16-NEXT:    vpslld $16, %ymm0, %ymm0
 ; AVX512BF16-NEXT:    vmulps %ymm1, %ymm0, %ymm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
-; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
-; AVX512BF16-NEXT:    vpslld $16, %ymm0, %ymm0
+; AVX512BF16-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} ymm3 = [1,1,1,1,1,1,1,1]
+; AVX512BF16-NEXT:    vpand %ymm3, %ymm1, %ymm1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} ymm4 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVX512BF16-NEXT:    vpaddd %ymm4, %ymm0, %ymm5
+; AVX512BF16-NEXT:    vpaddd %ymm5, %ymm1, %ymm1
+; AVX512BF16-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} ymm5 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVX512BF16-NEXT:    vpord %ymm5, %ymm0, %ymm1 {%k1}
+; AVX512BF16-NEXT:    vpxor %xmm0, %xmm0, %xmm0
+; AVX512BF16-NEXT:    vpblendw {{.*#+}} ymm0 = ymm0[0],ymm1[1],ymm0[2],ymm1[3],ymm0[4],ymm1[5],ymm0[6],ymm1[7],ymm0[8],ymm1[9],ymm0[10],ymm1[11],ymm0[12],ymm1[13],ymm0[14],ymm1[15]
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm2[0],zero,xmm2[1],zero,xmm2[2],zero,xmm2[3],zero,xmm2[4],zero,xmm2[5],zero,xmm2[6],zero,xmm2[7],zero
 ; AVX512BF16-NEXT:    vpslld $16, %ymm1, %ymm1
 ; AVX512BF16-NEXT:    vaddps %ymm1, %ymm0, %ymm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX512BF16-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX512BF16-NEXT:    vpand %ymm3, %ymm1, %ymm1
+; AVX512BF16-NEXT:    vpaddd %ymm4, %ymm0, %ymm2
+; AVX512BF16-NEXT:    vpaddd %ymm2, %ymm1, %ymm1
+; AVX512BF16-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX512BF16-NEXT:    vpord %ymm5, %ymm0, %ymm1 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX512BF16-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX512BF16-NEXT:    vzeroupper
 ; AVX512BF16-NEXT:    retq
 ;
@@ -469,72 +676,92 @@ define <5 x bfloat> @fuse_v5bf16(<5 x bfloat> %x, <5 x bfloat> %y, <5 x bfloat> 
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm0
 ; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm0 = xmm4[0,1,2],xmm0[0]
 ; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm3, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vmulps %ymm1, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
-; AVXNECONVERT-NEXT:    vpextrw $5, %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmulps %ymm1, %ymm0, %ymm4
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm4, %ymm1
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm0 = [1,1,1,1,1,1,1,1]
+; AVXNECONVERT-NEXT:    vpand %ymm0, %ymm1, %ymm3
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm4, %ymm5
+; AVXNECONVERT-NEXT:    vpaddd %ymm5, %ymm3, %ymm5
+; AVXNECONVERT-NEXT:    vbroadcastss {{.*#+}} ymm3 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVXNECONVERT-NEXT:    vorps %ymm3, %ymm4, %ymm6
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm4, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vblendvps %ymm4, %ymm6, %ymm5, %ymm4
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm4, %xmm5
+; AVXNECONVERT-NEXT:    vpextrw $2, %xmm5, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm1
-; AVXNECONVERT-NEXT:    vpextrw $4, %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
+; AVXNECONVERT-NEXT:    vpextrw $0, %xmm5, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],xmm3[2,3]
-; AVXNECONVERT-NEXT:    vpextrw $6, %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm7[0],xmm6[0],xmm7[2,3]
+; AVXNECONVERT-NEXT:    vpextrw $4, %xmm5, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],xmm3[0],xmm1[3]
-; AVXNECONVERT-NEXT:    vpextrw $7, %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm6[0,1],xmm7[0],xmm6[3]
+; AVXNECONVERT-NEXT:    vpextrw $6, %xmm5, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],xmm3[0]
-; AVXNECONVERT-NEXT:    vpextrw $1, %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm5 = xmm6[0,1,2],xmm5[0]
+; AVXNECONVERT-NEXT:    vpextrw $2, %xmm4, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vmovd %xmm0, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
+; AVXNECONVERT-NEXT:    vmovd %xmm4, %eax
+; AVXNECONVERT-NEXT:    shll $16, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm7[0],xmm6[0],xmm7[2,3]
+; AVXNECONVERT-NEXT:    vpextrw $4, %xmm4, %eax
+; AVXNECONVERT-NEXT:    shll $16, %eax
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm6[0,1],xmm7[0],xmm6[3]
+; AVXNECONVERT-NEXT:    vpextrw $6, %xmm4, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
-; AVXNECONVERT-NEXT:    vpextrw $2, %xmm0, %eax
-; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],xmm4[0],xmm3[3]
-; AVXNECONVERT-NEXT:    vpextrw $3, %xmm0, %eax
-; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm0
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm0 = xmm3[0,1,2],xmm0[0]
-; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm4 = xmm6[0,1,2],xmm4[0]
+; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm5, %ymm4, %ymm4
 ; AVXNECONVERT-NEXT:    vpextrw $5, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm1
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm5
 ; AVXNECONVERT-NEXT:    vpextrw $4, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],xmm3[2,3]
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm5 = xmm6[0],xmm5[0],xmm6[2,3]
 ; AVXNECONVERT-NEXT:    vpextrw $6, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],xmm3[0],xmm1[3]
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1],xmm6[0],xmm5[3]
 ; AVXNECONVERT-NEXT:    vpextrw $7, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1,2],xmm3[0]
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm5 = xmm5[0,1,2],xmm6[0]
 ; AVXNECONVERT-NEXT:    vpextrw $1, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm3
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm6
 ; AVXNECONVERT-NEXT:    vmovd %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[2,3]
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm7[0],xmm6[0],xmm7[2,3]
 ; AVXNECONVERT-NEXT:    vpextrw $2, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
-; AVXNECONVERT-NEXT:    vmovd %eax, %xmm4
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],xmm4[0],xmm3[3]
+; AVXNECONVERT-NEXT:    vmovd %eax, %xmm7
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm6 = xmm6[0,1],xmm7[0],xmm6[3]
 ; AVXNECONVERT-NEXT:    vpextrw $3, %xmm2, %eax
 ; AVXNECONVERT-NEXT:    shll $16, %eax
 ; AVXNECONVERT-NEXT:    vmovd %eax, %xmm2
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm2 = xmm3[0,1,2],xmm2[0]
-; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm1, %ymm2, %ymm1
-; AVXNECONVERT-NEXT:    vaddps %ymm1, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm2 = xmm6[0,1,2],xmm2[0]
+; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm5, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vaddps %ymm2, %ymm4, %ymm2
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm2, %ymm4
+; AVXNECONVERT-NEXT:    vpand %ymm0, %ymm4, %ymm0
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm2, %ymm1
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vorps %ymm3, %ymm2, %ymm1
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm2, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vblendvps %ymm2, %ymm1, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVXNECONVERT-NEXT:    vpackusdw %xmm1, %xmm0, %xmm0
 ; AVXNECONVERT-NEXT:    vzeroupper
 ; AVXNECONVERT-NEXT:    retq
 entry:
@@ -556,45 +783,90 @@ define <9 x bfloat> @fnmadd_v9bf16(<9 x bfloat> %x, <9 x bfloat> %y, <9 x bfloat
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm0 = ymm0[0],zero,ymm0[1],zero,ymm0[2],zero,ymm0[3],zero,ymm0[4],zero,ymm0[5],zero,ymm0[6],zero,ymm0[7],zero,ymm0[8],zero,ymm0[9],zero,ymm0[10],zero,ymm0[11],zero,ymm0[12],zero,ymm0[13],zero,ymm0[14],zero,ymm0[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm0, %zmm0
 ; AVX512BF16-NEXT:    vmulps %zmm1, %zmm0, %zmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
-; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm0 = ymm0[0],zero,ymm0[1],zero,ymm0[2],zero,ymm0[3],zero,ymm0[4],zero,ymm0[5],zero,ymm0[6],zero,ymm0[7],zero,ymm0[8],zero,ymm0[9],zero,ymm0[10],zero,ymm0[11],zero,ymm0[12],zero,ymm0[13],zero,ymm0[14],zero,ymm0[15],zero
+; AVX512BF16-NEXT:    vpsrld $16, %zmm0, %zmm1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm3 = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+; AVX512BF16-NEXT:    vpandd %zmm3, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm4 = [32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767]
+; AVX512BF16-NEXT:    vpaddd %zmm4, %zmm0, %zmm5
+; AVX512BF16-NEXT:    vpaddd %zmm5, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm5 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVX512BF16-NEXT:    vpord %zmm5, %zmm0, %zmm1 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm1, %zmm0
 ; AVX512BF16-NEXT:    vpslld $16, %zmm0, %zmm0
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm1 = ymm2[0],zero,ymm2[1],zero,ymm2[2],zero,ymm2[3],zero,ymm2[4],zero,ymm2[5],zero,ymm2[6],zero,ymm2[7],zero,ymm2[8],zero,ymm2[9],zero,ymm2[10],zero,ymm2[11],zero,ymm2[12],zero,ymm2[13],zero,ymm2[14],zero,ymm2[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm1, %zmm1
 ; AVX512BF16-NEXT:    vsubps %zmm0, %zmm1, %zmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
+; AVX512BF16-NEXT:    vpsrld $16, %zmm0, %zmm1
+; AVX512BF16-NEXT:    vpandd %zmm3, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vpaddd %zmm4, %zmm0, %zmm2
+; AVX512BF16-NEXT:    vpaddd %zmm2, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; AVX512BF16-NEXT:    vpord %zmm5, %zmm0, %zmm1 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm1, %zmm0
+; AVX512BF16-NEXT:    vpmovdw %zmm0, %ymm0
 ; AVX512BF16-NEXT:    retq
 ;
 ; AVXNECONVERT-LABEL: fnmadd_v9bf16:
 ; AVXNECONVERT:       # %bb.0: # %entry
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm1, %xmm3
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm0, %xmm4
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm4 = xmm4[0],zero,xmm4[1],zero,xmm4[2],zero,xmm4[3],zero,xmm4[4],zero,xmm4[5],zero,xmm4[6],zero,xmm4[7],zero
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm4 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm4, %ymm4
-; AVXNECONVERT-NEXT:    vmulps %ymm3, %ymm4, %ymm3
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm3, %xmm3
+; AVXNECONVERT-NEXT:    vmulps %ymm3, %ymm4, %ymm6
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm6, %ymm4
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm3 = [1,1,1,1,1,1,1,1]
+; AVXNECONVERT-NEXT:    vpand %ymm3, %ymm4, %ymm5
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm4 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm6, %ymm7
+; AVXNECONVERT-NEXT:    vpaddd %ymm5, %ymm7, %ymm7
+; AVXNECONVERT-NEXT:    vbroadcastss {{.*#+}} ymm5 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVXNECONVERT-NEXT:    vorps %ymm5, %ymm6, %ymm8
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm6, %ymm6, %ymm6
+; AVXNECONVERT-NEXT:    vblendvps %ymm6, %ymm8, %ymm7, %ymm6
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm1, %xmm1
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm0, %xmm0
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm0, %ymm0
 ; AVXNECONVERT-NEXT:    vmulps %ymm1, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm2[0],zero,xmm2[1],zero,xmm2[2],zero,xmm2[3],zero,xmm2[4],zero,xmm2[5],zero,xmm2[6],zero,xmm2[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
-; AVXNECONVERT-NEXT:    vsubps %ymm0, %ymm1, %ymm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
-; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm2, %xmm2
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVXNECONVERT-NEXT:    vpand %ymm3, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm0, %ymm7
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm7, %ymm1
+; AVXNECONVERT-NEXT:    vorps %ymm5, %ymm0, %ymm7
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vblendvps %ymm0, %ymm7, %ymm1, %ymm0
+; AVXNECONVERT-NEXT:    vpxor %xmm1, %xmm1, %xmm1
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm0 = ymm1[0],ymm0[1],ymm1[2],ymm0[3],ymm1[4],ymm0[5],ymm1[6],ymm0[7],ymm1[8],ymm0[9],ymm1[10],ymm0[11],ymm1[12],ymm0[13],ymm1[14],ymm0[15]
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm2, %xmm7
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm7 = xmm7[0],zero,xmm7[1],zero,xmm7[2],zero,xmm7[3],zero,xmm7[4],zero,xmm7[5],zero,xmm7[6],zero,xmm7[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm7, %ymm7
+; AVXNECONVERT-NEXT:    vsubps %ymm0, %ymm7, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm7
+; AVXNECONVERT-NEXT:    vpand %ymm3, %ymm7, %ymm7
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm0, %ymm8
+; AVXNECONVERT-NEXT:    vpaddd %ymm7, %ymm8, %ymm7
+; AVXNECONVERT-NEXT:    vorps %ymm5, %ymm0, %ymm8
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vblendvps %ymm0, %ymm8, %ymm7, %ymm0
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm1 = ymm1[0],ymm6[1],ymm1[2],ymm6[3],ymm1[4],ymm6[5],ymm1[6],ymm6[7],ymm1[8],ymm6[9],ymm1[10],ymm6[11],ymm1[12],ymm6[13],ymm1[14],ymm6[15]
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = xmm2[0],zero,xmm2[1],zero,xmm2[2],zero,xmm2[3],zero,xmm2[4],zero,xmm2[5],zero,xmm2[6],zero,xmm2[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
 ; AVXNECONVERT-NEXT:    vsubps %ymm1, %ymm2, %ymm1
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm1, %xmm1
-; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm1, %ymm2
+; AVXNECONVERT-NEXT:    vpand %ymm3, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm1, %ymm3
+; AVXNECONVERT-NEXT:    vpaddd %ymm2, %ymm3, %ymm2
+; AVXNECONVERT-NEXT:    vorps %ymm5, %ymm1, %ymm3
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm1, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vblendvps %ymm1, %ymm3, %ymm2, %ymm1
+; AVXNECONVERT-NEXT:    vperm2f128 {{.*#+}} ymm2 = ymm1[2,3],ymm0[2,3]
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm0, %ymm1, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpackusdw %ymm2, %ymm0, %ymm0
 ; AVXNECONVERT-NEXT:    retq
 entry:
   %m = fmul contract <9 x bfloat> %x, %y
@@ -618,26 +890,53 @@ define <29 x bfloat> @fuse_v19bf16_load(<29 x bfloat> %x, <29 x bfloat> %y, ptr 
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm3 = ymm3[0],zero,ymm3[1],zero,ymm3[2],zero,ymm3[3],zero,ymm3[4],zero,ymm3[5],zero,ymm3[6],zero,ymm3[7],zero,ymm3[8],zero,ymm3[9],zero,ymm3[10],zero,ymm3[11],zero,ymm3[12],zero,ymm3[13],zero,ymm3[14],zero,ymm3[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm3, %zmm3
 ; AVX512BF16-NEXT:    vmulps %zmm2, %zmm3, %zmm2
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm2, %ymm2
+; AVX512BF16-NEXT:    vpsrld $16, %zmm2, %zmm3
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm4 = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+; AVX512BF16-NEXT:    vpandd %zmm4, %zmm3, %zmm3
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm5 = [32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767,32767]
+; AVX512BF16-NEXT:    vpaddd %zmm5, %zmm2, %zmm6
+; AVX512BF16-NEXT:    vpaddd %zmm3, %zmm6, %zmm3
+; AVX512BF16-NEXT:    vcmpunordps %zmm2, %zmm2, %k1
+; AVX512BF16-NEXT:    vpbroadcastd {{.*#+}} zmm6 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVX512BF16-NEXT:    vpord %zmm6, %zmm2, %zmm3 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm3, %zmm2
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm1 = ymm1[0],zero,ymm1[1],zero,ymm1[2],zero,ymm1[3],zero,ymm1[4],zero,ymm1[5],zero,ymm1[6],zero,ymm1[7],zero,ymm1[8],zero,ymm1[9],zero,ymm1[10],zero,ymm1[11],zero,ymm1[12],zero,ymm1[13],zero,ymm1[14],zero,ymm1[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm1, %zmm1
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm0 = ymm0[0],zero,ymm0[1],zero,ymm0[2],zero,ymm0[3],zero,ymm0[4],zero,ymm0[5],zero,ymm0[6],zero,ymm0[7],zero,ymm0[8],zero,ymm0[9],zero,ymm0[10],zero,ymm0[11],zero,ymm0[12],zero,ymm0[13],zero,ymm0[14],zero,ymm0[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm0, %zmm0
 ; AVX512BF16-NEXT:    vmulps %zmm1, %zmm0, %zmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
-; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm0 = ymm0[0],zero,ymm0[1],zero,ymm0[2],zero,ymm0[3],zero,ymm0[4],zero,ymm0[5],zero,ymm0[6],zero,ymm0[7],zero,ymm0[8],zero,ymm0[9],zero,ymm0[10],zero,ymm0[11],zero,ymm0[12],zero,ymm0[13],zero,ymm0[14],zero,ymm0[15],zero
+; AVX512BF16-NEXT:    vpsrld $16, %zmm0, %zmm1
+; AVX512BF16-NEXT:    vpandd %zmm4, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vpaddd %zmm5, %zmm0, %zmm3
+; AVX512BF16-NEXT:    vpaddd %zmm1, %zmm3, %zmm1
+; AVX512BF16-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; AVX512BF16-NEXT:    vpord %zmm6, %zmm0, %zmm1 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm1, %zmm0
 ; AVX512BF16-NEXT:    vpslld $16, %zmm0, %zmm0
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm1 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero,mem[4],zero,mem[5],zero,mem[6],zero,mem[7],zero,mem[8],zero,mem[9],zero,mem[10],zero,mem[11],zero,mem[12],zero,mem[13],zero,mem[14],zero,mem[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm1, %zmm1
 ; AVX512BF16-NEXT:    vaddps %zmm1, %zmm0, %zmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
-; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm1 = ymm2[0],zero,ymm2[1],zero,ymm2[2],zero,ymm2[3],zero,ymm2[4],zero,ymm2[5],zero,ymm2[6],zero,ymm2[7],zero,ymm2[8],zero,ymm2[9],zero,ymm2[10],zero,ymm2[11],zero,ymm2[12],zero,ymm2[13],zero,ymm2[14],zero,ymm2[15],zero
-; AVX512BF16-NEXT:    vpslld $16, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vpsrld $16, %zmm0, %zmm1
+; AVX512BF16-NEXT:    vpandd %zmm4, %zmm1, %zmm1
+; AVX512BF16-NEXT:    vpaddd %zmm5, %zmm0, %zmm3
+; AVX512BF16-NEXT:    vpaddd %zmm1, %zmm3, %zmm1
+; AVX512BF16-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; AVX512BF16-NEXT:    vpord %zmm6, %zmm0, %zmm1 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm1, %zmm0
+; AVX512BF16-NEXT:    vpmovdw %zmm0, %ymm0
+; AVX512BF16-NEXT:    vpslld $16, %zmm2, %zmm1
 ; AVX512BF16-NEXT:    vpmovzxwd {{.*#+}} zmm2 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero,mem[4],zero,mem[5],zero,mem[6],zero,mem[7],zero,mem[8],zero,mem[9],zero,mem[10],zero,mem[11],zero,mem[12],zero,mem[13],zero,mem[14],zero,mem[15],zero
 ; AVX512BF16-NEXT:    vpslld $16, %zmm2, %zmm2
 ; AVX512BF16-NEXT:    vaddps %zmm2, %zmm1, %zmm1
-; AVX512BF16-NEXT:    vcvtneps2bf16 %zmm1, %ymm1
-; AVX512BF16-NEXT:    vinsertf64x4 $1, %ymm1, %zmm0, %zmm0
+; AVX512BF16-NEXT:    vpsrld $16, %zmm1, %zmm2
+; AVX512BF16-NEXT:    vpandd %zmm4, %zmm2, %zmm2
+; AVX512BF16-NEXT:    vpaddd %zmm5, %zmm1, %zmm3
+; AVX512BF16-NEXT:    vpaddd %zmm2, %zmm3, %zmm2
+; AVX512BF16-NEXT:    vcmpunordps %zmm1, %zmm1, %k1
+; AVX512BF16-NEXT:    vpord %zmm6, %zmm1, %zmm2 {%k1}
+; AVX512BF16-NEXT:    vpsrld $16, %zmm2, %zmm1
+; AVX512BF16-NEXT:    vpmovdw %zmm1, %ymm1
+; AVX512BF16-NEXT:    vinserti64x4 $1, %ymm1, %zmm0, %zmm0
 ; AVX512BF16-NEXT:    retq
 ;
 ; AVXNECONVERT-LABEL: fuse_v19bf16_load:
@@ -669,133 +968,191 @@ define <29 x bfloat> @fuse_v19bf16_load(<29 x bfloat> %x, <29 x bfloat> %y, ptr 
 ; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm13
 ; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm11 = xmm12[0],xmm11[0],xmm12[1],xmm11[1]
 ; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm12
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm12 = xmm13[0],xmm12[0],xmm13[1],xmm12[1],xmm13[2],xmm12[2],xmm13[3],xmm12[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm13
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm9 = xmm9[0],xmm13[0],xmm9[1],xmm13[1],xmm9[2],xmm13[2],xmm9[3],xmm13[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm13
-; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm9 = xmm9[0],xmm12[0],xmm9[1],xmm12[1]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm12
-; AVXNECONVERT-NEXT:    vpunpcklqdq {{.*#+}} xmm9 = xmm9[0],xmm11[0]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm11
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm10 = xmm10[0],zero,xmm10[1],zero,xmm10[2],zero,xmm10[3],zero,xmm10[4],zero,xmm10[5],zero,xmm10[6],zero,xmm10[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm10, %ymm10
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm9 = xmm9[0],zero,xmm9[1],zero,xmm9[2],zero,xmm9[3],zero,xmm9[4],zero,xmm9[5],zero,xmm9[6],zero,xmm9[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm9, %ymm9
-; AVXNECONVERT-NEXT:    vmulps %ymm10, %ymm9, %ymm9
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm10
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm10 = xmm11[0],xmm10[0],xmm11[1],xmm10[1],xmm11[2],xmm10[2],xmm11[3],xmm10[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm11
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm11 = xmm12[0],xmm11[0],xmm12[1],xmm11[1],xmm12[2],xmm11[2],xmm12[3],xmm11[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm12
-; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm10 = xmm11[0],xmm10[0],xmm11[1],xmm10[1]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm11
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm11 = xmm12[0],xmm11[0],xmm12[1],xmm11[1],xmm12[2],xmm11[2],xmm12[3],xmm11[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm12
 ; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm12 = xmm13[0],xmm12[0],xmm13[1],xmm12[1],xmm13[2],xmm12[2],xmm13[3],xmm12[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm13
-; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm11 = xmm12[0],xmm11[0],xmm12[1],xmm11[1]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm12
-; AVXNECONVERT-NEXT:    vpunpcklqdq {{.*#+}} xmm10 = xmm11[0],xmm10[0]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm11
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm11 = xmm12[0],xmm11[0],xmm12[1],xmm11[1],xmm12[2],xmm11[2],xmm12[3],xmm11[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm12
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm12 = xmm13[0],xmm12[0],xmm13[1],xmm12[1],xmm13[2],xmm12[2],xmm13[3],xmm12[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm13
-; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm11 = xmm12[0],xmm11[0],xmm12[1],xmm11[1]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm12
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm12 = xmm13[0],xmm12[0],xmm13[1],xmm12[1],xmm13[2],xmm12[2],xmm13[3],xmm12[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm13
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm8 = xmm8[0],xmm13[0],xmm8[1],xmm13[1],xmm8[2],xmm13[2],xmm8[3],xmm13[3]
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm8 = xmm8[0],xmm9[0],xmm8[1],xmm9[1],xmm8[2],xmm9[2],xmm8[3],xmm9[3]
 ; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm8 = xmm8[0],xmm12[0],xmm8[1],xmm12[1]
 ; AVXNECONVERT-NEXT:    vpunpcklqdq {{.*#+}} xmm8 = xmm8[0],xmm11[0]
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm10 = xmm10[0],zero,xmm10[1],zero,xmm10[2],zero,xmm10[3],zero,xmm10[4],zero,xmm10[5],zero,xmm10[6],zero,xmm10[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm10, %ymm10
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm8 = xmm8[0],zero,xmm8[1],zero,xmm8[2],zero,xmm8[3],zero,xmm8[4],zero,xmm8[5],zero,xmm8[6],zero,xmm8[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm8, %ymm8
-; AVXNECONVERT-NEXT:    vmulps %ymm10, %ymm8, %ymm8
+; AVXNECONVERT-NEXT:    vmulps %ymm10, %ymm8, %ymm11
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm11, %ymm9
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm8 = [1,1,1,1,1,1,1,1]
+; AVXNECONVERT-NEXT:    vpand %ymm8, %ymm9, %ymm10
+; AVXNECONVERT-NEXT:    vpbroadcastd {{.*#+}} ymm9 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVXNECONVERT-NEXT:    vpaddd %ymm9, %ymm11, %ymm12
+; AVXNECONVERT-NEXT:    vpaddd %ymm10, %ymm12, %ymm12
+; AVXNECONVERT-NEXT:    vbroadcastss {{.*#+}} ymm10 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVXNECONVERT-NEXT:    vorps %ymm10, %ymm11, %ymm13
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm11, %ymm11, %ymm11
+; AVXNECONVERT-NEXT:    vblendvps %ymm11, %ymm13, %ymm12, %ymm11
 ; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm6 = xmm6[0],xmm7[0],xmm6[1],xmm7[1],xmm6[2],xmm7[2],xmm6[3],xmm7[3]
 ; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm4 = xmm4[0],xmm5[0],xmm4[1],xmm5[1],xmm4[2],xmm5[2],xmm4[3],xmm5[3]
-; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm4 = xmm4[0],xmm6[0],xmm4[1],xmm6[1]
+; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm5 = xmm4[0],xmm6[0],xmm4[1],xmm6[1]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm4
 ; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm3[0],xmm2[1],xmm3[1],xmm2[2],xmm3[2],xmm2[3],xmm3[3]
 ; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
 ; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
 ; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm1
 ; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm0 = xmm0[0],xmm2[0],xmm0[1],xmm2[1]
 ; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm2
-; AVXNECONVERT-NEXT:    vpunpcklqdq {{.*#+}} xmm0 = xmm0[0],xmm4[0]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm4
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm4[0],xmm2[1],xmm4[1],xmm2[2],xmm4[2],xmm2[3],xmm4[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm4
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm1[0],xmm4[0],xmm1[1],xmm4[1],xmm1[2],xmm4[2],xmm1[3],xmm4[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm4
+; AVXNECONVERT-NEXT:    vpunpcklqdq {{.*#+}} xmm0 = xmm0[0],xmm5[0]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm5
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm2[0],xmm5[0],xmm2[1],xmm5[1],xmm2[2],xmm5[2],xmm2[3],xmm5[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm5
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm1[0],xmm5[0],xmm1[1],xmm5[1],xmm1[2],xmm5[2],xmm1[3],xmm5[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm5
 ; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1]
 ; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm2
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm4[0],xmm2[0],xmm4[1],xmm2[1],xmm4[2],xmm2[2],xmm4[3],xmm2[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm4
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm3 = xmm3[0],xmm4[0],xmm3[1],xmm4[1],xmm3[2],xmm4[2],xmm3[3],xmm4[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm4
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm5[0],xmm2[0],xmm5[1],xmm2[1],xmm5[2],xmm2[2],xmm5[3],xmm2[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm5
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm3 = xmm3[0],xmm5[0],xmm3[1],xmm5[1],xmm3[2],xmm5[2],xmm3[3],xmm5[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm5
+; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm2 = xmm3[0],xmm2[0],xmm3[1],xmm2[1]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpunpcklqdq {{.*#+}} xmm1 = xmm2[0],xmm1[0]
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vmulps %ymm1, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVXNECONVERT-NEXT:    vpand %ymm1, %ymm8, %ymm1
+; AVXNECONVERT-NEXT:    vpaddd %ymm0, %ymm9, %ymm2
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm2, %ymm1
+; AVXNECONVERT-NEXT:    vorps %ymm0, %ymm10, %ymm2
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vblendvps %ymm0, %ymm2, %ymm1, %ymm0
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm1
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm2
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm1[0],xmm2[0],xmm1[1],xmm2[1],xmm1[2],xmm2[2],xmm1[3],xmm2[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm2
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm3[0],xmm2[0],xmm3[1],xmm2[1],xmm3[2],xmm2[2],xmm3[3],xmm2[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
+; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm1 = xmm2[0],xmm1[0],xmm2[1],xmm1[1]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm2
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm3[0],xmm2[0],xmm3[1],xmm2[1],xmm3[2],xmm2[2],xmm3[3],xmm2[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm3 = xmm5[0],xmm3[0],xmm5[1],xmm3[1],xmm5[2],xmm3[2],xmm5[3],xmm3[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm5
 ; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm2 = xmm3[0],xmm2[0],xmm3[1],xmm2[1]
 ; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
 ; AVXNECONVERT-NEXT:    vpunpcklqdq {{.*#+}} xmm1 = xmm2[0],xmm1[0]
 ; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm2
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
-; AVXNECONVERT-NEXT:    vmulps %ymm1, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm1
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm2[0],xmm1[0],xmm2[1],xmm1[1],xmm2[2],xmm1[2],xmm2[3],xmm1[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm2
 ; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm3[0],xmm2[0],xmm3[1],xmm2[1],xmm3[2],xmm2[2],xmm3[3],xmm2[3]
 ; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm2[0],xmm1[0],zero,zero
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm2
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],xmm2[0],xmm1[3]
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm2
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm2 = xmm3[0],xmm2[0],xmm3[1],xmm2[1],xmm3[2],xmm2[2],xmm3[3],xmm2[3]
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm3 = xmm5[0],xmm3[0],xmm5[1],xmm3[1],xmm5[2],xmm3[2],xmm5[3],xmm3[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm5
+; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm2 = xmm3[0],xmm2[0],xmm3[1],xmm2[1]
 ; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
-; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[1],xmm3[1],xmm4[2],xmm3[2],xmm4[3],xmm3[3]
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm2 = xmm3[0],xmm2[0],zero,zero
-; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
-; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm2 = xmm2[0,1],xmm3[0],xmm2[3]
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm8, %xmm3
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm3 = xmm5[0],xmm3[0],xmm5[1],xmm3[1],xmm5[2],xmm3[2],xmm5[3],xmm3[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm5
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm4 = xmm4[0],xmm5[0],xmm4[1],xmm5[1],xmm4[2],xmm5[2],xmm4[3],xmm5[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm5
+; AVXNECONVERT-NEXT:    vpunpckldq {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[1],xmm3[1]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm4
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vpunpcklqdq {{.*#+}} xmm2 = xmm3[0],xmm2[0]
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = xmm2[0],zero,xmm2[1],zero,xmm2[2],zero,xmm2[3],zero,xmm2[4],zero,xmm2[5],zero,xmm2[6],zero,xmm2[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
 ; AVXNECONVERT-NEXT:    vmulps %ymm1, %ymm2, %ymm1
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero,mem[4],zero,mem[5],zero,mem[6],zero,mem[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
-; AVXNECONVERT-NEXT:    vaddps %ymm2, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero,mem[4],zero,mem[5],zero,mem[6],zero,mem[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
-; AVXNECONVERT-NEXT:    vaddps %ymm3, %ymm2, %ymm2
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm9, %xmm3
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm1, %xmm1
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm2, %xmm2
-; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm2 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm2, %ymm2
-; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero,mem[4],zero,mem[5],zero,mem[6],zero,mem[7],zero
-; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
-; AVXNECONVERT-NEXT:    vaddps %ymm3, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm1, %ymm2
+; AVXNECONVERT-NEXT:    vpand %ymm2, %ymm8, %ymm2
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm9, %ymm3
+; AVXNECONVERT-NEXT:    vpaddd %ymm2, %ymm3, %ymm2
+; AVXNECONVERT-NEXT:    vorps %ymm1, %ymm10, %ymm3
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm1, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vblendvps %ymm1, %ymm3, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm1
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm1 = xmm1[0],xmm3[0],xmm1[1],xmm3[1],xmm1[2],xmm3[2],xmm1[3],xmm3[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[1],xmm3[1],xmm4[2],xmm3[2],xmm4[3],xmm3[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm4
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm3[0],xmm1[0],zero,zero
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm1 = xmm1[0,1],xmm3[0],xmm1[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm3
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm3 = xmm4[0],xmm3[0],xmm4[1],xmm3[1],xmm4[2],xmm3[2],xmm4[3],xmm3[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm4
+; AVXNECONVERT-NEXT:    vpunpcklwd {{.*#+}} xmm4 = xmm5[0],xmm4[0],xmm5[1],xmm4[1],xmm5[2],xmm4[2],xmm5[3],xmm4[3]
+; AVXNECONVERT-NEXT:    vpinsrw $0, {{[0-9]+}}(%rsp), %xmm0, %xmm5
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm1 = xmm1[0],zero,xmm1[1],zero,xmm1[2],zero,xmm1[3],zero,xmm1[4],zero,xmm1[5],zero,xmm1[6],zero,xmm1[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm4[0],xmm3[0],zero,zero
+; AVXNECONVERT-NEXT:    vinsertps {{.*#+}} xmm3 = xmm3[0,1],xmm5[0],xmm3[3]
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = xmm3[0],zero,xmm3[1],zero,xmm3[2],zero,xmm3[3],zero,xmm3[4],zero,xmm3[5],zero,xmm3[6],zero,xmm3[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
+; AVXNECONVERT-NEXT:    vmulps %ymm1, %ymm3, %ymm1
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm1, %ymm3
+; AVXNECONVERT-NEXT:    vpand %ymm3, %ymm8, %ymm3
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm9, %ymm4
+; AVXNECONVERT-NEXT:    vpaddd %ymm3, %ymm4, %ymm3
+; AVXNECONVERT-NEXT:    vorps %ymm1, %ymm10, %ymm4
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm1, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vblendvps %ymm1, %ymm4, %ymm3, %ymm1
+; AVXNECONVERT-NEXT:    vpxor %xmm3, %xmm3, %xmm3
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm2 = ymm3[0],ymm2[1],ymm3[2],ymm2[3],ymm3[4],ymm2[5],ymm3[6],ymm2[7],ymm3[8],ymm2[9],ymm3[10],ymm2[11],ymm3[12],ymm2[13],ymm3[14],ymm2[15]
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm4 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero,mem[4],zero,mem[5],zero,mem[6],zero,mem[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vaddps %ymm4, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm2, %ymm4
+; AVXNECONVERT-NEXT:    vpand %ymm4, %ymm8, %ymm4
+; AVXNECONVERT-NEXT:    vpaddd %ymm2, %ymm9, %ymm5
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm5, %ymm4
+; AVXNECONVERT-NEXT:    vorps %ymm2, %ymm10, %ymm5
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm2, %ymm2, %ymm2
+; AVXNECONVERT-NEXT:    vblendvps %ymm2, %ymm5, %ymm4, %ymm2
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm0 = ymm3[0],ymm0[1],ymm3[2],ymm0[3],ymm3[4],ymm0[5],ymm3[6],ymm0[7],ymm3[8],ymm0[9],ymm3[10],ymm0[11],ymm3[12],ymm0[13],ymm3[14],ymm0[15]
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm4 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero,mem[4],zero,mem[5],zero,mem[6],zero,mem[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vaddps %ymm4, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm4
+; AVXNECONVERT-NEXT:    vpand %ymm4, %ymm8, %ymm4
+; AVXNECONVERT-NEXT:    vpaddd %ymm0, %ymm9, %ymm5
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm5, %ymm4
+; AVXNECONVERT-NEXT:    vorps %ymm0, %ymm10, %ymm5
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vblendvps %ymm0, %ymm5, %ymm4, %ymm0
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm4 = ymm3[0],ymm11[1],ymm3[2],ymm11[3],ymm3[4],ymm11[5],ymm3[6],ymm11[7],ymm3[8],ymm11[9],ymm3[10],ymm11[11],ymm3[12],ymm11[13],ymm3[14],ymm11[15]
+; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm5 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero,mem[4],zero,mem[5],zero,mem[6],zero,mem[7],zero
+; AVXNECONVERT-NEXT:    vpslld $16, %ymm5, %ymm5
+; AVXNECONVERT-NEXT:    vaddps %ymm5, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm4, %ymm5
+; AVXNECONVERT-NEXT:    vpand %ymm5, %ymm8, %ymm5
+; AVXNECONVERT-NEXT:    vpaddd %ymm4, %ymm9, %ymm6
+; AVXNECONVERT-NEXT:    vpaddd %ymm5, %ymm6, %ymm5
+; AVXNECONVERT-NEXT:    vorps %ymm4, %ymm10, %ymm6
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm4, %ymm4, %ymm4
+; AVXNECONVERT-NEXT:    vblendvps %ymm4, %ymm6, %ymm5, %ymm4
+; AVXNECONVERT-NEXT:    vpblendw {{.*#+}} ymm1 = ymm3[0],ymm1[1],ymm3[2],ymm1[3],ymm3[4],ymm1[5],ymm3[6],ymm1[7],ymm3[8],ymm1[9],ymm3[10],ymm1[11],ymm3[12],ymm1[13],ymm3[14],ymm1[15]
 ; AVXNECONVERT-NEXT:    vpmovzxwd {{.*#+}} ymm3 = mem[0],zero,mem[1],zero,mem[2],zero,mem[3],zero,mem[4],zero,mem[5],zero,mem[6],zero,mem[7],zero
 ; AVXNECONVERT-NEXT:    vpslld $16, %ymm3, %ymm3
 ; AVXNECONVERT-NEXT:    vaddps %ymm3, %ymm1, %ymm1
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm1, %xmm1
-; AVXNECONVERT-NEXT:    vpextrw $4, %xmm1, 56(%rdi)
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm1, %ymm3
+; AVXNECONVERT-NEXT:    vpand %ymm3, %ymm8, %ymm3
+; AVXNECONVERT-NEXT:    vpaddd %ymm1, %ymm9, %ymm5
+; AVXNECONVERT-NEXT:    vpaddd %ymm3, %ymm5, %ymm3
+; AVXNECONVERT-NEXT:    vorps %ymm1, %ymm10, %ymm5
+; AVXNECONVERT-NEXT:    vcmpunordps %ymm1, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vblendvps %ymm1, %ymm5, %ymm3, %ymm1
+; AVXNECONVERT-NEXT:    vperm2f128 {{.*#+}} ymm3 = ymm0[2,3],ymm2[2,3]
+; AVXNECONVERT-NEXT:    vinsertf128 $1, %xmm2, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm3, %ymm2
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpackusdw %ymm2, %ymm0, %ymm0
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm4, %ymm2
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm2, %xmm3
+; AVXNECONVERT-NEXT:    vpackusdw %xmm3, %xmm2, %xmm2
+; AVXNECONVERT-NEXT:    vpsrld $16, %ymm1, %ymm1
+; AVXNECONVERT-NEXT:    vextracti128 $1, %ymm1, %xmm3
+; AVXNECONVERT-NEXT:    vpextrw $0, %xmm3, 56(%rdi)
+; AVXNECONVERT-NEXT:    vpackusdw %xmm1, %xmm1, %xmm1
 ; AVXNECONVERT-NEXT:    vmovq %xmm1, 48(%rdi)
-; AVXNECONVERT-NEXT:    {vex} vcvtneps2bf16 %ymm2, %xmm1
-; AVXNECONVERT-NEXT:    vmovaps %xmm1, 32(%rdi)
-; AVXNECONVERT-NEXT:    vmovaps %ymm0, (%rdi)
+; AVXNECONVERT-NEXT:    vmovdqa %xmm2, 32(%rdi)
+; AVXNECONVERT-NEXT:    vmovdqa %ymm0, (%rdi)
 ; AVXNECONVERT-NEXT:    vzeroupper
 ; AVXNECONVERT-NEXT:    retq
 entry:

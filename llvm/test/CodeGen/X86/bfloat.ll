@@ -18,8 +18,15 @@ define void @add(ptr %pa, ptr %pb, ptr %pc) nounwind {
 ; X86-NEXT:    shll $16, %ecx
 ; X86-NEXT:    vmovd %ecx, %xmm1
 ; X86-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; X86-NEXT:    vpextrw $0, %xmm0, (%eax)
+; X86-NEXT:    vmovd %xmm0, %ecx
+; X86-NEXT:    btl $16, %ecx
+; X86-NEXT:    movl %ecx, %edx
+; X86-NEXT:    adcl $32767, %edx # imm = 0x7FFF
+; X86-NEXT:    orl $4194304, %ecx # imm = 0x400000
+; X86-NEXT:    vucomiss %xmm0, %xmm0
+; X86-NEXT:    cmovnpl %edx, %ecx
+; X86-NEXT:    shrl $16, %ecx
+; X86-NEXT:    movw %cx, (%eax)
 ; X86-NEXT:    retl
 ;
 ; SSE2-LABEL: add:
@@ -39,31 +46,25 @@ define void @add(ptr %pa, ptr %pb, ptr %pc) nounwind {
 ; SSE2-NEXT:    popq %rbx
 ; SSE2-NEXT:    retq
 ;
-; AVX512-LABEL: add:
-; AVX512:       # %bb.0:
-; AVX512-NEXT:    movzwl (%rsi), %eax
-; AVX512-NEXT:    shll $16, %eax
-; AVX512-NEXT:    vmovd %eax, %xmm0
-; AVX512-NEXT:    movzwl (%rdi), %eax
-; AVX512-NEXT:    shll $16, %eax
-; AVX512-NEXT:    vmovd %eax, %xmm1
-; AVX512-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVX512-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; AVX512-NEXT:    vpextrw $0, %xmm0, (%rdx)
-; AVX512-NEXT:    retq
-;
-; AVXNC-LABEL: add:
-; AVXNC:       # %bb.0:
-; AVXNC-NEXT:    movzwl (%rsi), %eax
-; AVXNC-NEXT:    shll $16, %eax
-; AVXNC-NEXT:    vmovd %eax, %xmm0
-; AVXNC-NEXT:    movzwl (%rdi), %eax
-; AVXNC-NEXT:    shll $16, %eax
-; AVXNC-NEXT:    vmovd %eax, %xmm1
-; AVXNC-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0
-; AVXNC-NEXT:    vpextrw $0, %xmm0, (%rdx)
-; AVXNC-NEXT:    retq
+; AVX-LABEL: add:
+; AVX:       # %bb.0:
+; AVX-NEXT:    movzwl (%rsi), %eax
+; AVX-NEXT:    shll $16, %eax
+; AVX-NEXT:    vmovd %eax, %xmm0
+; AVX-NEXT:    movzwl (%rdi), %eax
+; AVX-NEXT:    shll $16, %eax
+; AVX-NEXT:    vmovd %eax, %xmm1
+; AVX-NEXT:    vaddss %xmm0, %xmm1, %xmm0
+; AVX-NEXT:    vmovd %xmm0, %eax
+; AVX-NEXT:    btl $16, %eax
+; AVX-NEXT:    movl %eax, %ecx
+; AVX-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX-NEXT:    vucomiss %xmm0, %xmm0
+; AVX-NEXT:    cmovnpl %ecx, %eax
+; AVX-NEXT:    shrl $16, %eax
+; AVX-NEXT:    movw %ax, (%rdx)
+; AVX-NEXT:    retq
   %a = load bfloat, ptr %pa
   %b = load bfloat, ptr %pb
   %add = fadd bfloat %a, %b
@@ -81,7 +82,15 @@ define bfloat @add2(bfloat %a, bfloat %b) nounwind {
 ; X86-NEXT:    shll $16, %eax
 ; X86-NEXT:    vmovd %eax, %xmm1
 ; X86-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; X86-NEXT:    vmovd %xmm0, %eax
+; X86-NEXT:    btl $16, %eax
+; X86-NEXT:    movl %eax, %ecx
+; X86-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; X86-NEXT:    orl $4194304, %eax # imm = 0x400000
+; X86-NEXT:    vucomiss %xmm0, %xmm0
+; X86-NEXT:    cmovnpl %ecx, %eax
+; X86-NEXT:    shrl $16, %eax
+; X86-NEXT:    vmovw %eax, %xmm0
 ; X86-NEXT:    retl
 ;
 ; SSE2-LABEL: add2:
@@ -107,7 +116,15 @@ define bfloat @add2(bfloat %a, bfloat %b) nounwind {
 ; AVX512BF16-NEXT:    shll $16, %eax
 ; AVX512BF16-NEXT:    vmovd %eax, %xmm1
 ; AVX512BF16-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; AVX512BF16-NEXT:    vmovd %xmm0, %eax
+; AVX512BF16-NEXT:    btl $16, %eax
+; AVX512BF16-NEXT:    movl %eax, %ecx
+; AVX512BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512BF16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512BF16-NEXT:    cmovnpl %ecx, %eax
+; AVX512BF16-NEXT:    shrl $16, %eax
+; AVX512BF16-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
 ; AVX512BF16-NEXT:    retq
 ;
 ; AVX512FP16-LABEL: add2:
@@ -119,7 +136,15 @@ define bfloat @add2(bfloat %a, bfloat %b) nounwind {
 ; AVX512FP16-NEXT:    shll $16, %eax
 ; AVX512FP16-NEXT:    vmovd %eax, %xmm1
 ; AVX512FP16-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVX512FP16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; AVX512FP16-NEXT:    vmovd %xmm0, %eax
+; AVX512FP16-NEXT:    btl $16, %eax
+; AVX512FP16-NEXT:    movl %eax, %ecx
+; AVX512FP16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512FP16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512FP16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512FP16-NEXT:    cmovnpl %ecx, %eax
+; AVX512FP16-NEXT:    shrl $16, %eax
+; AVX512FP16-NEXT:    vmovw %eax, %xmm0
 ; AVX512FP16-NEXT:    retq
 ;
 ; AVXNC-LABEL: add2:
@@ -131,7 +156,15 @@ define bfloat @add2(bfloat %a, bfloat %b) nounwind {
 ; AVXNC-NEXT:    shll $16, %eax
 ; AVXNC-NEXT:    vmovd %eax, %xmm1
 ; AVXNC-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0
+; AVXNC-NEXT:    vmovd %xmm0, %eax
+; AVXNC-NEXT:    btl $16, %eax
+; AVXNC-NEXT:    movl %eax, %ecx
+; AVXNC-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVXNC-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVXNC-NEXT:    vucomiss %xmm0, %xmm0
+; AVXNC-NEXT:    cmovnpl %ecx, %eax
+; AVXNC-NEXT:    shrl $16, %eax
+; AVXNC-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
 ; AVXNC-NEXT:    retq
   %add = fadd bfloat %a, %b
   ret bfloat %add
@@ -160,9 +193,14 @@ define void @add_double(ptr %pa, ptr %pb, ptr %pc) nounwind {
 ; X86-NEXT:    shll $16, %edi
 ; X86-NEXT:    vmovd %edi, %xmm1
 ; X86-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; X86-NEXT:    vmovw %xmm0, %eax
-; X86-NEXT:    shll $16, %eax
+; X86-NEXT:    vmovd %xmm0, %eax
+; X86-NEXT:    btl $16, %eax
+; X86-NEXT:    movl %eax, %ecx
+; X86-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; X86-NEXT:    orl $4194304, %eax # imm = 0x400000
+; X86-NEXT:    vucomiss %xmm0, %xmm0
+; X86-NEXT:    cmovnpl %ecx, %eax
+; X86-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
 ; X86-NEXT:    vmovd %eax, %xmm0
 ; X86-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
 ; X86-NEXT:    vmovsd %xmm0, (%esi)
@@ -219,9 +257,14 @@ define void @add_double(ptr %pa, ptr %pb, ptr %pc) nounwind {
 ; AVX512BF16-NEXT:    shll $16, %ebp
 ; AVX512BF16-NEXT:    vmovd %ebp, %xmm1
 ; AVX512BF16-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
 ; AVX512BF16-NEXT:    vmovd %xmm0, %eax
-; AVX512BF16-NEXT:    shll $16, %eax
+; AVX512BF16-NEXT:    btl $16, %eax
+; AVX512BF16-NEXT:    movl %eax, %ecx
+; AVX512BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512BF16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512BF16-NEXT:    cmovnpl %ecx, %eax
+; AVX512BF16-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
 ; AVX512BF16-NEXT:    vmovd %eax, %xmm0
 ; AVX512BF16-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
 ; AVX512BF16-NEXT:    vmovsd %xmm0, (%rbx)
@@ -248,9 +291,14 @@ define void @add_double(ptr %pa, ptr %pb, ptr %pc) nounwind {
 ; AVX512FP16-NEXT:    shll $16, %ebp
 ; AVX512FP16-NEXT:    vmovd %ebp, %xmm1
 ; AVX512FP16-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVX512FP16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; AVX512FP16-NEXT:    vmovw %xmm0, %eax
-; AVX512FP16-NEXT:    shll $16, %eax
+; AVX512FP16-NEXT:    vmovd %xmm0, %eax
+; AVX512FP16-NEXT:    btl $16, %eax
+; AVX512FP16-NEXT:    movl %eax, %ecx
+; AVX512FP16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512FP16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512FP16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512FP16-NEXT:    cmovnpl %ecx, %eax
+; AVX512FP16-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
 ; AVX512FP16-NEXT:    vmovd %eax, %xmm0
 ; AVX512FP16-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
 ; AVX512FP16-NEXT:    vmovsd %xmm0, (%rbx)
@@ -277,9 +325,14 @@ define void @add_double(ptr %pa, ptr %pb, ptr %pc) nounwind {
 ; AVXNC-NEXT:    shll $16, %ebp
 ; AVXNC-NEXT:    vmovd %ebp, %xmm1
 ; AVXNC-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0
 ; AVXNC-NEXT:    vmovd %xmm0, %eax
-; AVXNC-NEXT:    shll $16, %eax
+; AVXNC-NEXT:    btl $16, %eax
+; AVXNC-NEXT:    movl %eax, %ecx
+; AVXNC-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVXNC-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVXNC-NEXT:    vucomiss %xmm0, %xmm0
+; AVXNC-NEXT:    cmovnpl %ecx, %eax
+; AVXNC-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
 ; AVXNC-NEXT:    vmovd %eax, %xmm0
 ; AVXNC-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
 ; AVXNC-NEXT:    vmovsd %xmm0, (%rbx)
@@ -315,9 +368,14 @@ define double @add_double2(double %da, double %db) nounwind {
 ; X86-NEXT:    shll $16, %esi
 ; X86-NEXT:    vmovd %esi, %xmm1
 ; X86-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; X86-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; X86-NEXT:    vmovw %xmm0, %eax
-; X86-NEXT:    shll $16, %eax
+; X86-NEXT:    vmovd %xmm0, %eax
+; X86-NEXT:    btl $16, %eax
+; X86-NEXT:    movl %eax, %ecx
+; X86-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; X86-NEXT:    orl $4194304, %eax # imm = 0x400000
+; X86-NEXT:    vucomiss %xmm0, %xmm0
+; X86-NEXT:    cmovnpl %ecx, %eax
+; X86-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
 ; X86-NEXT:    vmovd %eax, %xmm0
 ; X86-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
 ; X86-NEXT:    vmovsd %xmm0, {{[0-9]+}}(%esp)
@@ -367,9 +425,14 @@ define double @add_double2(double %da, double %db) nounwind {
 ; AVX512BF16-NEXT:    shll $16, %ebx
 ; AVX512BF16-NEXT:    vmovd %ebx, %xmm1
 ; AVX512BF16-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
 ; AVX512BF16-NEXT:    vmovd %xmm0, %eax
-; AVX512BF16-NEXT:    shll $16, %eax
+; AVX512BF16-NEXT:    btl $16, %eax
+; AVX512BF16-NEXT:    movl %eax, %ecx
+; AVX512BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512BF16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512BF16-NEXT:    cmovnpl %ecx, %eax
+; AVX512BF16-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
 ; AVX512BF16-NEXT:    vmovd %eax, %xmm0
 ; AVX512BF16-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
 ; AVX512BF16-NEXT:    addq $16, %rsp
@@ -392,9 +455,14 @@ define double @add_double2(double %da, double %db) nounwind {
 ; AVX512FP16-NEXT:    shll $16, %ebx
 ; AVX512FP16-NEXT:    vmovd %ebx, %xmm1
 ; AVX512FP16-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVX512FP16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; AVX512FP16-NEXT:    vmovw %xmm0, %eax
-; AVX512FP16-NEXT:    shll $16, %eax
+; AVX512FP16-NEXT:    vmovd %xmm0, %eax
+; AVX512FP16-NEXT:    btl $16, %eax
+; AVX512FP16-NEXT:    movl %eax, %ecx
+; AVX512FP16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512FP16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512FP16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512FP16-NEXT:    cmovnpl %ecx, %eax
+; AVX512FP16-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
 ; AVX512FP16-NEXT:    vmovd %eax, %xmm0
 ; AVX512FP16-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
 ; AVX512FP16-NEXT:    addq $16, %rsp
@@ -417,9 +485,14 @@ define double @add_double2(double %da, double %db) nounwind {
 ; AVXNC-NEXT:    shll $16, %ebx
 ; AVXNC-NEXT:    vmovd %ebx, %xmm1
 ; AVXNC-NEXT:    vaddss %xmm0, %xmm1, %xmm0
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0
 ; AVXNC-NEXT:    vmovd %xmm0, %eax
-; AVXNC-NEXT:    shll $16, %eax
+; AVXNC-NEXT:    btl $16, %eax
+; AVXNC-NEXT:    movl %eax, %ecx
+; AVXNC-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVXNC-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVXNC-NEXT:    vucomiss %xmm0, %xmm0
+; AVXNC-NEXT:    cmovnpl %ecx, %eax
+; AVXNC-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
 ; AVXNC-NEXT:    vmovd %eax, %xmm0
 ; AVXNC-NEXT:    vcvtss2sd %xmm0, %xmm0, %xmm0
 ; AVXNC-NEXT:    addq $16, %rsp
@@ -441,8 +514,15 @@ define void @add_constant(ptr %pa, ptr %pc) nounwind {
 ; X86-NEXT:    shll $16, %ecx
 ; X86-NEXT:    vmovd %ecx, %xmm0
 ; X86-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}, %xmm0, %xmm0
-; X86-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; X86-NEXT:    vpextrw $0, %xmm0, (%eax)
+; X86-NEXT:    vmovd %xmm0, %ecx
+; X86-NEXT:    btl $16, %ecx
+; X86-NEXT:    movl %ecx, %edx
+; X86-NEXT:    adcl $32767, %edx # imm = 0x7FFF
+; X86-NEXT:    orl $4194304, %ecx # imm = 0x400000
+; X86-NEXT:    vucomiss %xmm0, %xmm0
+; X86-NEXT:    cmovnpl %edx, %ecx
+; X86-NEXT:    shrl $16, %ecx
+; X86-NEXT:    movw %cx, (%eax)
 ; X86-NEXT:    retl
 ;
 ; SSE2-LABEL: add_constant:
@@ -459,25 +539,22 @@ define void @add_constant(ptr %pa, ptr %pc) nounwind {
 ; SSE2-NEXT:    popq %rbx
 ; SSE2-NEXT:    retq
 ;
-; AVX512-LABEL: add_constant:
-; AVX512:       # %bb.0:
-; AVX512-NEXT:    movzwl (%rdi), %eax
-; AVX512-NEXT:    shll $16, %eax
-; AVX512-NEXT:    vmovd %eax, %xmm0
-; AVX512-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
-; AVX512-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; AVX512-NEXT:    vpextrw $0, %xmm0, (%rsi)
-; AVX512-NEXT:    retq
-;
-; AVXNC-LABEL: add_constant:
-; AVXNC:       # %bb.0:
-; AVXNC-NEXT:    movzwl (%rdi), %eax
-; AVXNC-NEXT:    shll $16, %eax
-; AVXNC-NEXT:    vmovd %eax, %xmm0
-; AVXNC-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0
-; AVXNC-NEXT:    vpextrw $0, %xmm0, (%rsi)
-; AVXNC-NEXT:    retq
+; AVX-LABEL: add_constant:
+; AVX:       # %bb.0:
+; AVX-NEXT:    movzwl (%rdi), %eax
+; AVX-NEXT:    shll $16, %eax
+; AVX-NEXT:    vmovd %eax, %xmm0
+; AVX-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
+; AVX-NEXT:    vmovd %xmm0, %eax
+; AVX-NEXT:    btl $16, %eax
+; AVX-NEXT:    movl %eax, %ecx
+; AVX-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX-NEXT:    vucomiss %xmm0, %xmm0
+; AVX-NEXT:    cmovnpl %ecx, %eax
+; AVX-NEXT:    shrl $16, %eax
+; AVX-NEXT:    movw %ax, (%rsi)
+; AVX-NEXT:    retq
   %a = load bfloat, ptr %pa
   %add = fadd bfloat %a, 1.0
   store bfloat %add, ptr %pc
@@ -491,7 +568,15 @@ define bfloat @add_constant2(bfloat %a) nounwind {
 ; X86-NEXT:    shll $16, %eax
 ; X86-NEXT:    vmovd %eax, %xmm0
 ; X86-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}, %xmm0, %xmm0
-; X86-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; X86-NEXT:    vmovd %xmm0, %eax
+; X86-NEXT:    btl $16, %eax
+; X86-NEXT:    movl %eax, %ecx
+; X86-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; X86-NEXT:    orl $4194304, %eax # imm = 0x400000
+; X86-NEXT:    vucomiss %xmm0, %xmm0
+; X86-NEXT:    cmovnpl %ecx, %eax
+; X86-NEXT:    shrl $16, %eax
+; X86-NEXT:    vmovw %eax, %xmm0
 ; X86-NEXT:    retl
 ;
 ; SSE2-LABEL: add_constant2:
@@ -511,7 +596,15 @@ define bfloat @add_constant2(bfloat %a) nounwind {
 ; AVX512BF16-NEXT:    shll $16, %eax
 ; AVX512BF16-NEXT:    vmovd %eax, %xmm0
 ; AVX512BF16-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; AVX512BF16-NEXT:    vmovd %xmm0, %eax
+; AVX512BF16-NEXT:    btl $16, %eax
+; AVX512BF16-NEXT:    movl %eax, %ecx
+; AVX512BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512BF16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512BF16-NEXT:    cmovnpl %ecx, %eax
+; AVX512BF16-NEXT:    shrl $16, %eax
+; AVX512BF16-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
 ; AVX512BF16-NEXT:    retq
 ;
 ; AVX512FP16-LABEL: add_constant2:
@@ -520,7 +613,15 @@ define bfloat @add_constant2(bfloat %a) nounwind {
 ; AVX512FP16-NEXT:    shll $16, %eax
 ; AVX512FP16-NEXT:    vmovd %eax, %xmm0
 ; AVX512FP16-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
-; AVX512FP16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; AVX512FP16-NEXT:    vmovd %xmm0, %eax
+; AVX512FP16-NEXT:    btl $16, %eax
+; AVX512FP16-NEXT:    movl %eax, %ecx
+; AVX512FP16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512FP16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512FP16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512FP16-NEXT:    cmovnpl %ecx, %eax
+; AVX512FP16-NEXT:    shrl $16, %eax
+; AVX512FP16-NEXT:    vmovw %eax, %xmm0
 ; AVX512FP16-NEXT:    retq
 ;
 ; AVXNC-LABEL: add_constant2:
@@ -529,7 +630,15 @@ define bfloat @add_constant2(bfloat %a) nounwind {
 ; AVXNC-NEXT:    shll $16, %eax
 ; AVXNC-NEXT:    vmovd %eax, %xmm0
 ; AVXNC-NEXT:    vaddss {{\.?LCPI[0-9]+_[0-9]+}}(%rip), %xmm0, %xmm0
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0
+; AVXNC-NEXT:    vmovd %xmm0, %eax
+; AVXNC-NEXT:    btl $16, %eax
+; AVXNC-NEXT:    movl %eax, %ecx
+; AVXNC-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVXNC-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVXNC-NEXT:    vucomiss %xmm0, %xmm0
+; AVXNC-NEXT:    cmovnpl %ecx, %eax
+; AVXNC-NEXT:    shrl $16, %eax
+; AVXNC-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
 ; AVXNC-NEXT:    retq
   %add = fadd bfloat %a, 1.0
   ret bfloat %add
@@ -590,7 +699,15 @@ define bfloat @fold_from_half(half %a) nounwind {
 ; X86:       # %bb.0:
 ; X86-NEXT:    vmovsh {{.*#+}} xmm0 = mem[0],zero,zero,zero,zero,zero,zero,zero
 ; X86-NEXT:    vcvtsh2ss %xmm0, %xmm0, %xmm0
-; X86-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; X86-NEXT:    vmovd %xmm0, %eax
+; X86-NEXT:    btl $16, %eax
+; X86-NEXT:    movl %eax, %ecx
+; X86-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; X86-NEXT:    orl $4194304, %eax # imm = 0x400000
+; X86-NEXT:    vucomiss %xmm0, %xmm0
+; X86-NEXT:    cmovnpl %ecx, %eax
+; X86-NEXT:    shrl $16, %eax
+; X86-NEXT:    vmovw %eax, %xmm0
 ; X86-NEXT:    retl
 ;
 ; SSE2-LABEL: fold_from_half:
@@ -604,19 +721,43 @@ define bfloat @fold_from_half(half %a) nounwind {
 ; AVX512BF16-LABEL: fold_from_half:
 ; AVX512BF16:       # %bb.0:
 ; AVX512BF16-NEXT:    vcvtph2ps %xmm0, %xmm0
-; AVX512BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; AVX512BF16-NEXT:    vmovd %xmm0, %eax
+; AVX512BF16-NEXT:    btl $16, %eax
+; AVX512BF16-NEXT:    movl %eax, %ecx
+; AVX512BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512BF16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512BF16-NEXT:    cmovnpl %ecx, %eax
+; AVX512BF16-NEXT:    shrl $16, %eax
+; AVX512BF16-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
 ; AVX512BF16-NEXT:    retq
 ;
 ; AVX512FP16-LABEL: fold_from_half:
 ; AVX512FP16:       # %bb.0:
 ; AVX512FP16-NEXT:    vcvtsh2ss %xmm0, %xmm0, %xmm0
-; AVX512FP16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
+; AVX512FP16-NEXT:    vmovd %xmm0, %eax
+; AVX512FP16-NEXT:    btl $16, %eax
+; AVX512FP16-NEXT:    movl %eax, %ecx
+; AVX512FP16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX512FP16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX512FP16-NEXT:    vucomiss %xmm0, %xmm0
+; AVX512FP16-NEXT:    cmovnpl %ecx, %eax
+; AVX512FP16-NEXT:    shrl $16, %eax
+; AVX512FP16-NEXT:    vmovw %eax, %xmm0
 ; AVX512FP16-NEXT:    retq
 ;
 ; AVXNC-LABEL: fold_from_half:
 ; AVXNC:       # %bb.0:
 ; AVXNC-NEXT:    vcvtph2ps %xmm0, %xmm0
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0
+; AVXNC-NEXT:    vmovd %xmm0, %eax
+; AVXNC-NEXT:    btl $16, %eax
+; AVXNC-NEXT:    movl %eax, %ecx
+; AVXNC-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVXNC-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVXNC-NEXT:    vucomiss %xmm0, %xmm0
+; AVXNC-NEXT:    cmovnpl %ecx, %eax
+; AVXNC-NEXT:    shrl $16, %eax
+; AVXNC-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
 ; AVXNC-NEXT:    retq
   %ext = fpext half %a to float
   %trunc = fptrunc float %ext to bfloat
@@ -704,7 +845,14 @@ define <8 x bfloat> @addv(<8 x bfloat> %a, <8 x bfloat> %b) nounwind {
 ; X86-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; X86-NEXT:    vpslld $16, %ymm0, %ymm0
 ; X86-NEXT:    vaddps %ymm1, %ymm0, %ymm0
-; X86-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; X86-NEXT:    vpsrld $16, %ymm0, %ymm1
+; X86-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}{1to8}, %ymm1, %ymm1
+; X86-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; X86-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}{1to8}, %ymm1, %ymm1
+; X86-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; X86-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}{1to8}, %ymm0, %ymm1 {%k1}
+; X86-NEXT:    vpsrld $16, %ymm1, %ymm0
+; X86-NEXT:    vpmovdw %ymm0, %xmm0
 ; X86-NEXT:    vzeroupper
 ; X86-NEXT:    retl
 ;
@@ -849,7 +997,14 @@ define <8 x bfloat> @addv(<8 x bfloat> %a, <8 x bfloat> %b) nounwind {
 ; AVX512-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; AVX512-NEXT:    vpslld $16, %ymm0, %ymm0
 ; AVX512-NEXT:    vaddps %ymm1, %ymm0, %ymm0
-; AVX512-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX512-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX512-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX512-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; AVX512-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX512-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX512-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; AVX512-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX512-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
 ;
@@ -860,7 +1015,19 @@ define <8 x bfloat> @addv(<8 x bfloat> %a, <8 x bfloat> %b) nounwind {
 ; AVXNC-NEXT:    vpmovzxwd {{.*#+}} ymm0 = xmm0[0],zero,xmm0[1],zero,xmm0[2],zero,xmm0[3],zero,xmm0[4],zero,xmm0[5],zero,xmm0[6],zero,xmm0[7],zero
 ; AVXNC-NEXT:    vpslld $16, %ymm0, %ymm0
 ; AVXNC-NEXT:    vaddps %ymm1, %ymm0, %ymm0
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
+; AVXNC-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [1,1,1,1,1,1,1,1]
+; AVXNC-NEXT:    vpand %ymm2, %ymm1, %ymm1
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVXNC-NEXT:    vpaddd %ymm2, %ymm0, %ymm2
+; AVXNC-NEXT:    vpaddd %ymm2, %ymm1, %ymm1
+; AVXNC-NEXT:    vbroadcastss {{.*#+}} ymm2 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVXNC-NEXT:    vorps %ymm2, %ymm0, %ymm2
+; AVXNC-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNC-NEXT:    vblendvps %ymm0, %ymm2, %ymm1, %ymm0
+; AVXNC-NEXT:    vpsrld $16, %ymm0, %ymm0
+; AVXNC-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVXNC-NEXT:    vpackusdw %xmm1, %xmm0, %xmm0
 ; AVXNC-NEXT:    vzeroupper
 ; AVXNC-NEXT:    retq
   %add = fadd <8 x bfloat> %a, %b
@@ -1379,7 +1546,14 @@ define <4 x bfloat> @fptrunc_v4f32(<4 x float> %a) nounwind {
 ; X86-LABEL: fptrunc_v4f32:
 ; X86:       # %bb.0:
 ; X86-NEXT:    # kill: def $xmm0 killed $xmm0 def $ymm0
-; X86-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; X86-NEXT:    vpsrld $16, %ymm0, %ymm1
+; X86-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}{1to8}, %ymm1, %ymm1
+; X86-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; X86-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}{1to8}, %ymm1, %ymm1
+; X86-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; X86-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}{1to8}, %ymm0, %ymm1 {%k1}
+; X86-NEXT:    vpsrld $16, %ymm1, %ymm0
+; X86-NEXT:    vpmovdw %ymm0, %xmm0
 ; X86-NEXT:    vzeroupper
 ; X86-NEXT:    retl
 ;
@@ -1412,14 +1586,33 @@ define <4 x bfloat> @fptrunc_v4f32(<4 x float> %a) nounwind {
 ; AVX512-LABEL: fptrunc_v4f32:
 ; AVX512:       # %bb.0:
 ; AVX512-NEXT:    # kill: def $xmm0 killed $xmm0 def $ymm0
-; AVX512-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX512-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX512-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX512-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; AVX512-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX512-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX512-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; AVX512-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX512-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
 ;
 ; AVXNC-LABEL: fptrunc_v4f32:
 ; AVXNC:       # %bb.0:
 ; AVXNC-NEXT:    # kill: def $xmm0 killed $xmm0 def $ymm0
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
+; AVXNC-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [1,1,1,1,1,1,1,1]
+; AVXNC-NEXT:    vpand %ymm2, %ymm1, %ymm1
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVXNC-NEXT:    vpaddd %ymm2, %ymm0, %ymm2
+; AVXNC-NEXT:    vpaddd %ymm2, %ymm1, %ymm1
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVXNC-NEXT:    vpor %ymm2, %ymm0, %ymm2
+; AVXNC-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNC-NEXT:    vblendvps %ymm0, %ymm2, %ymm1, %ymm0
+; AVXNC-NEXT:    vpsrld $16, %ymm0, %ymm0
+; AVXNC-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVXNC-NEXT:    vpackusdw %xmm1, %xmm0, %xmm0
 ; AVXNC-NEXT:    vzeroupper
 ; AVXNC-NEXT:    retq
   %b = fptrunc <4 x float> %a to <4 x bfloat>
@@ -1429,7 +1622,14 @@ define <4 x bfloat> @fptrunc_v4f32(<4 x float> %a) nounwind {
 define <8 x bfloat> @fptrunc_v8f32(<8 x float> %a) nounwind {
 ; X86-LABEL: fptrunc_v8f32:
 ; X86:       # %bb.0:
-; X86-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; X86-NEXT:    vpsrld $16, %ymm0, %ymm1
+; X86-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}{1to8}, %ymm1, %ymm1
+; X86-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; X86-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}{1to8}, %ymm1, %ymm1
+; X86-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; X86-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}{1to8}, %ymm0, %ymm1 {%k1}
+; X86-NEXT:    vpsrld $16, %ymm1, %ymm0
+; X86-NEXT:    vpmovdw %ymm0, %xmm0
 ; X86-NEXT:    vzeroupper
 ; X86-NEXT:    retl
 ;
@@ -1497,13 +1697,32 @@ define <8 x bfloat> @fptrunc_v8f32(<8 x float> %a) nounwind {
 ;
 ; AVX512-LABEL: fptrunc_v8f32:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX512-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX512-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX512-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; AVX512-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX512-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX512-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; AVX512-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX512-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX512-NEXT:    vzeroupper
 ; AVX512-NEXT:    retq
 ;
 ; AVXNC-LABEL: fptrunc_v8f32:
 ; AVXNC:       # %bb.0:
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm1 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVXNC-NEXT:    vpor %ymm1, %ymm0, %ymm1
+; AVXNC-NEXT:    vpsrld $16, %ymm0, %ymm2
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm3 = [1,1,1,1,1,1,1,1]
+; AVXNC-NEXT:    vpand %ymm3, %ymm2, %ymm2
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm3 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVXNC-NEXT:    vpaddd %ymm3, %ymm0, %ymm3
+; AVXNC-NEXT:    vpaddd %ymm3, %ymm2, %ymm2
+; AVXNC-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNC-NEXT:    vblendvps %ymm0, %ymm1, %ymm2, %ymm0
+; AVXNC-NEXT:    vpsrld $16, %ymm0, %ymm0
+; AVXNC-NEXT:    vextracti128 $1, %ymm0, %xmm1
+; AVXNC-NEXT:    vpackusdw %xmm1, %xmm0, %xmm0
 ; AVXNC-NEXT:    vzeroupper
 ; AVXNC-NEXT:    retq
   %b = fptrunc <8 x float> %a to <8 x bfloat>
@@ -1513,7 +1732,14 @@ define <8 x bfloat> @fptrunc_v8f32(<8 x float> %a) nounwind {
 define <16 x bfloat> @fptrunc_v16f32(<16 x float> %a) nounwind {
 ; X86-LABEL: fptrunc_v16f32:
 ; X86:       # %bb.0:
-; X86-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
+; X86-NEXT:    vpsrld $16, %zmm0, %zmm1
+; X86-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}{1to16}, %zmm1, %zmm1
+; X86-NEXT:    vpaddd %zmm0, %zmm1, %zmm1
+; X86-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}{1to16}, %zmm1, %zmm1
+; X86-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; X86-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}{1to16}, %zmm0, %zmm1 {%k1}
+; X86-NEXT:    vpsrld $16, %zmm1, %zmm0
+; X86-NEXT:    vpmovdw %zmm0, %ymm0
 ; X86-NEXT:    retl
 ;
 ; SSE2-LABEL: fptrunc_v16f32:
@@ -1636,14 +1862,40 @@ define <16 x bfloat> @fptrunc_v16f32(<16 x float> %a) nounwind {
 ;
 ; AVX512-LABEL: fptrunc_v16f32:
 ; AVX512:       # %bb.0:
-; AVX512-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
+; AVX512-NEXT:    vpsrld $16, %zmm0, %zmm1
+; AVX512-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm1, %zmm1
+; AVX512-NEXT:    vpaddd %zmm0, %zmm1, %zmm1
+; AVX512-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm1, %zmm1
+; AVX512-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; AVX512-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %zmm1 {%k1}
+; AVX512-NEXT:    vpsrld $16, %zmm1, %zmm0
+; AVX512-NEXT:    vpmovdw %zmm0, %ymm0
 ; AVX512-NEXT:    retq
 ;
 ; AVXNC-LABEL: fptrunc_v16f32:
 ; AVXNC:       # %bb.0:
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %ymm0, %xmm0
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %ymm1, %xmm1
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm2 = [4194304,4194304,4194304,4194304,4194304,4194304,4194304,4194304]
+; AVXNC-NEXT:    vpor %ymm2, %ymm1, %ymm3
+; AVXNC-NEXT:    vpsrld $16, %ymm1, %ymm4
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm5 = [1,1,1,1,1,1,1,1]
+; AVXNC-NEXT:    vpand %ymm5, %ymm4, %ymm4
+; AVXNC-NEXT:    vpbroadcastd {{.*#+}} ymm6 = [32767,32767,32767,32767,32767,32767,32767,32767]
+; AVXNC-NEXT:    vpaddd %ymm6, %ymm1, %ymm7
+; AVXNC-NEXT:    vpaddd %ymm7, %ymm4, %ymm4
+; AVXNC-NEXT:    vcmpunordps %ymm1, %ymm1, %ymm1
+; AVXNC-NEXT:    vblendvps %ymm1, %ymm3, %ymm4, %ymm1
+; AVXNC-NEXT:    vpor %ymm2, %ymm0, %ymm2
+; AVXNC-NEXT:    vpsrld $16, %ymm0, %ymm3
+; AVXNC-NEXT:    vpand %ymm5, %ymm3, %ymm3
+; AVXNC-NEXT:    vpaddd %ymm6, %ymm0, %ymm4
+; AVXNC-NEXT:    vpaddd %ymm4, %ymm3, %ymm3
+; AVXNC-NEXT:    vcmpunordps %ymm0, %ymm0, %ymm0
+; AVXNC-NEXT:    vblendvps %ymm0, %ymm2, %ymm3, %ymm0
+; AVXNC-NEXT:    vperm2f128 {{.*#+}} ymm2 = ymm0[2,3],ymm1[2,3]
+; AVXNC-NEXT:    vpsrld $16, %ymm2, %ymm2
 ; AVXNC-NEXT:    vinsertf128 $1, %xmm1, %ymm0, %ymm0
+; AVXNC-NEXT:    vpsrld $16, %ymm0, %ymm0
+; AVXNC-NEXT:    vpackusdw %ymm2, %ymm0, %ymm0
 ; AVXNC-NEXT:    retq
   %b = fptrunc <16 x float> %a to <16 x bfloat>
   ret <16 x bfloat> %b
@@ -2122,10 +2374,15 @@ define float @trunc_ext(float %a) nounwind {
 ; X86-LABEL: trunc_ext:
 ; X86:       # %bb.0:
 ; X86-NEXT:    pushl %eax
-; X86-NEXT:    vmovss {{.*#+}} xmm0 = mem[0],zero,zero,zero
-; X86-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; X86-NEXT:    vmovw %xmm0, %eax
-; X86-NEXT:    shll $16, %eax
+; X86-NEXT:    vmovd {{.*#+}} xmm0 = mem[0],zero,zero,zero
+; X86-NEXT:    vmovd %xmm0, %eax
+; X86-NEXT:    btl $16, %eax
+; X86-NEXT:    movl %eax, %ecx
+; X86-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; X86-NEXT:    orl $4194304, %eax # imm = 0x400000
+; X86-NEXT:    vucomiss %xmm0, %xmm0
+; X86-NEXT:    cmovnpl %ecx, %eax
+; X86-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
 ; X86-NEXT:    vmovd %eax, %xmm0
 ; X86-NEXT:    vmovd %xmm0, (%esp)
 ; X86-NEXT:    flds (%esp)
@@ -2142,29 +2399,18 @@ define float @trunc_ext(float %a) nounwind {
 ; SSE2-NEXT:    popq %rax
 ; SSE2-NEXT:    retq
 ;
-; AVX512BF16-LABEL: trunc_ext:
-; AVX512BF16:       # %bb.0:
-; AVX512BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; AVX512BF16-NEXT:    vmovd %xmm0, %eax
-; AVX512BF16-NEXT:    shll $16, %eax
-; AVX512BF16-NEXT:    vmovd %eax, %xmm0
-; AVX512BF16-NEXT:    retq
-;
-; AVX512FP16-LABEL: trunc_ext:
-; AVX512FP16:       # %bb.0:
-; AVX512FP16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; AVX512FP16-NEXT:    vmovw %xmm0, %eax
-; AVX512FP16-NEXT:    shll $16, %eax
-; AVX512FP16-NEXT:    vmovd %eax, %xmm0
-; AVX512FP16-NEXT:    retq
-;
-; AVXNC-LABEL: trunc_ext:
-; AVXNC:       # %bb.0:
-; AVXNC-NEXT:    {vex} vcvtneps2bf16 %xmm0, %xmm0
-; AVXNC-NEXT:    vmovd %xmm0, %eax
-; AVXNC-NEXT:    shll $16, %eax
-; AVXNC-NEXT:    vmovd %eax, %xmm0
-; AVXNC-NEXT:    retq
+; AVX-LABEL: trunc_ext:
+; AVX:       # %bb.0:
+; AVX-NEXT:    vmovd %xmm0, %eax
+; AVX-NEXT:    btl $16, %eax
+; AVX-NEXT:    movl %eax, %ecx
+; AVX-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX-NEXT:    vucomiss %xmm0, %xmm0
+; AVX-NEXT:    cmovnpl %ecx, %eax
+; AVX-NEXT:    andl $-65536, %eax # imm = 0xFFFF0000
+; AVX-NEXT:    vmovd %eax, %xmm0
+; AVX-NEXT:    retq
   %b = fptrunc float %a to bfloat
   %c = fpext bfloat %b to float
   ret float %c

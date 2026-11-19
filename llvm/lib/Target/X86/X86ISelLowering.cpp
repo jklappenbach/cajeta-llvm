@@ -23157,6 +23157,18 @@ SDValue X86TargetLowering::LowerFP_EXTEND(SDValue Op, SelectionDAG &DAG) const {
   return DAG.getNode(X86ISD::VFPEXT, DL, VT, Res);
 }
 
+// Every x86 bf16 conversion instruction (AVX512-BF16's VCVTNEPS2BF16 and
+// AVX-NE-CONVERT's VEX form) treats a float32 denormal input as zero, which an IEEE
+// fptrunc does not: 1.0e-40 narrows to the bf16 subnormal 0x0001, not to zero. The
+// instructions are used only where the function lets float32 denormal inputs flush;
+// elsewhere the conversion is the integer round-to-nearest-even it is on a CPU
+// without the feature (cajeta-llvm, from cajeta's bf16-cast-denormals, 2026-11-18).
+static bool bf16ConvertMayFlush(SelectionDAG &DAG) {
+  DenormalMode Mode = DAG.getMachineFunction().getDenormalMode(APFloat::IEEEsingle());
+  return Mode.Input == DenormalMode::PreserveSign ||
+         Mode.Input == DenormalMode::PositiveZero;
+}
+
 SDValue X86TargetLowering::LowerFP_ROUND(SDValue Op, SelectionDAG &DAG) const {
   bool IsStrict = Op->isStrictFPOpcode();
 
@@ -23211,10 +23223,35 @@ SDValue X86TargetLowering::LowerFP_ROUND(SDValue Op, SelectionDAG &DAG) const {
   }
 
   if (VT.getScalarType() == MVT::bf16) {
-    if (SVT.getScalarType() == MVT::f32 &&
-        ((Subtarget.hasBF16() && Subtarget.hasVLX()) ||
-         Subtarget.hasAVXNECONVERT()))
+    bool HasConvert = (Subtarget.hasBF16() && Subtarget.hasVLX()) ||
+                      Subtarget.hasAVXNECONVERT();
+    if (SVT.getScalarType() == MVT::f32 && HasConvert && bf16ConvertMayFlush(DAG))
       return Op;
+    // Exact, and still vector: (bits + 0x7FFF + ((bits >> 16) & 1)) >> 16 a lane,
+    // a NaN keeping its top half with the quiet bit set. The generic expansion
+    // would unroll the vector into one scalar conversion a lane.
+    if (VT.isVector() && !IsStrict && SVT.getScalarType() == MVT::f32 &&
+        (Subtarget.hasBF16() || Subtarget.hasAVXNECONVERT())) {
+      MVT IVT = SVT.changeVectorElementTypeToInteger();
+      MVT HVT = MVT::getVectorVT(MVT::i16, VT.getVectorNumElements());
+      SDValue Bits = DAG.getBitcast(IVT, In);
+      SDValue Sixteen = DAG.getConstant(16, DL, IVT);
+      SDValue Lsb = DAG.getNode(ISD::AND, DL, IVT,
+                                DAG.getNode(ISD::SRL, DL, IVT, Bits, Sixteen),
+                                DAG.getConstant(1, DL, IVT));
+      SDValue Rounded = DAG.getNode(
+          ISD::ADD, DL, IVT, Bits,
+          DAG.getNode(ISD::ADD, DL, IVT, Lsb, DAG.getConstant(0x7fff, DL, IVT)));
+      SDValue Quiet = DAG.getNode(ISD::OR, DL, IVT, Bits,
+                                  DAG.getConstant(0x400000, DL, IVT));
+      SDValue IsNaN = DAG.getSetCC(
+          DL, getSetCCResultType(DAG.getDataLayout(), *DAG.getContext(), SVT), In, In,
+          ISD::SETUO);
+      SDValue Res = DAG.getSelect(DL, IVT, IsNaN, Quiet, Rounded);
+      Res = DAG.getNode(ISD::SRL, DL, IVT, Res, Sixteen);
+      return DAG.getBitcast(VT, DAG.getNode(ISD::TRUNCATE, DL, HVT, Res));
+    }
+    // Otherwise no custom lowering: the node expands to the exact integer form.
     return SDValue();
   }
 
@@ -23323,13 +23360,37 @@ SDValue X86TargetLowering::LowerFP_TO_BF16(SDValue Op,
 
   MVT SVT = Op.getOperand(0).getSimpleValueType();
   if (SVT == MVT::f32 && ((Subtarget.hasBF16() && Subtarget.hasVLX()) ||
-                          Subtarget.hasAVXNECONVERT())) {
+                          Subtarget.hasAVXNECONVERT()) &&
+      bf16ConvertMayFlush(DAG)) {
     SDValue Res;
     Res = DAG.getNode(ISD::SCALAR_TO_VECTOR, DL, MVT::v4f32, Op.getOperand(0));
     Res = DAG.getNode(X86ISD::CVTNEPS2BF16, DL, MVT::v8bf16, Res);
     Res = DAG.getBitcast(MVT::v8i16, Res);
     return DAG.getNode(ISD::EXTRACT_VECTOR_ELT, DL, MVT::i16, Res,
                        DAG.getVectorIdxConstant(0, DL));
+  }
+
+  // Where the instructions exist but may not flush, round inline rather than call
+  // the library: (bits + 0x7FFF + ((bits >> 16) & 1)) >> 16, a NaN keeping its top
+  // half with the quiet bit set.
+  if (SVT == MVT::f32 && (Subtarget.hasBF16() || Subtarget.hasAVXNECONVERT())) {
+    SDValue In = Op.getOperand(0);
+    SDValue Bits = DAG.getBitcast(MVT::i32, In);
+    SDValue Sixteen = DAG.getShiftAmountConstant(16, MVT::i32, DL);
+    SDValue Lsb = DAG.getNode(ISD::AND, DL, MVT::i32,
+                              DAG.getNode(ISD::SRL, DL, MVT::i32, Bits, Sixteen),
+                              DAG.getConstant(1, DL, MVT::i32));
+    SDValue Rounded = DAG.getNode(
+        ISD::ADD, DL, MVT::i32, Bits,
+        DAG.getNode(ISD::ADD, DL, MVT::i32, Lsb, DAG.getConstant(0x7fff, DL, MVT::i32)));
+    SDValue Quiet = DAG.getNode(ISD::OR, DL, MVT::i32, Bits,
+                                DAG.getConstant(0x400000, DL, MVT::i32));
+    SDValue IsNaN = DAG.getSetCC(
+        DL, getSetCCResultType(DAG.getDataLayout(), *DAG.getContext(), MVT::f32),
+        In, In, ISD::SETUO);
+    SDValue Res = DAG.getSelect(DL, MVT::i32, IsNaN, Quiet, Rounded);
+    Res = DAG.getNode(ISD::SRL, DL, MVT::i32, Res, Sixteen);
+    return DAG.getNode(ISD::TRUNCATE, DL, MVT::i16, Res);
   }
 
   MakeLibCallOptions CallOptions;

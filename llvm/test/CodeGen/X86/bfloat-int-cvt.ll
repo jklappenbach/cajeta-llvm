@@ -7,21 +7,65 @@
 ;
 
 define bfloat @sitofp_i32_to_bf16(i32 %a) {
-; CHECK-LABEL: sitofp_i32_to_bf16:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtsi2ss %edi, %xmm15, %xmm0
-; CHECK-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; CHECK-NEXT:    retq
+; BF16-LABEL: sitofp_i32_to_bf16:
+; BF16:       # %bb.0:
+; BF16-NEXT:    vcvtsi2ss %edi, %xmm15, %xmm0
+; BF16-NEXT:    vmovd %xmm0, %eax
+; BF16-NEXT:    btl $16, %eax
+; BF16-NEXT:    movl %eax, %ecx
+; BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm0, %xmm0
+; BF16-NEXT:    cmovnpl %ecx, %eax
+; BF16-NEXT:    shrl $16, %eax
+; BF16-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
+; BF16-NEXT:    retq
+;
+; AVX10_2-LABEL: sitofp_i32_to_bf16:
+; AVX10_2:       # %bb.0:
+; AVX10_2-NEXT:    vcvtsi2ss %edi, %xmm15, %xmm0
+; AVX10_2-NEXT:    vmovd %xmm0, %eax
+; AVX10_2-NEXT:    btl $16, %eax
+; AVX10_2-NEXT:    movl %eax, %ecx
+; AVX10_2-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX10_2-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX10_2-NEXT:    vucomiss %xmm0, %xmm0
+; AVX10_2-NEXT:    cmovnpl %ecx, %eax
+; AVX10_2-NEXT:    shrl $16, %eax
+; AVX10_2-NEXT:    vmovw %eax, %xmm0
+; AVX10_2-NEXT:    retq
   %cvt = sitofp i32 %a to bfloat
   ret bfloat %cvt
 }
 
 define bfloat @sitofp_i64_to_bf16(i64 %a) {
-; CHECK-LABEL: sitofp_i64_to_bf16:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtsi2ss %rdi, %xmm15, %xmm0
-; CHECK-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; CHECK-NEXT:    retq
+; BF16-LABEL: sitofp_i64_to_bf16:
+; BF16:       # %bb.0:
+; BF16-NEXT:    vcvtsi2ss %rdi, %xmm15, %xmm0
+; BF16-NEXT:    vmovd %xmm0, %eax
+; BF16-NEXT:    btl $16, %eax
+; BF16-NEXT:    movl %eax, %ecx
+; BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm0, %xmm0
+; BF16-NEXT:    cmovnpl %ecx, %eax
+; BF16-NEXT:    shrl $16, %eax
+; BF16-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
+; BF16-NEXT:    retq
+;
+; AVX10_2-LABEL: sitofp_i64_to_bf16:
+; AVX10_2:       # %bb.0:
+; AVX10_2-NEXT:    vcvtsi2ss %rdi, %xmm15, %xmm0
+; AVX10_2-NEXT:    vmovd %xmm0, %eax
+; AVX10_2-NEXT:    btl $16, %eax
+; AVX10_2-NEXT:    movl %eax, %ecx
+; AVX10_2-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX10_2-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX10_2-NEXT:    vucomiss %xmm0, %xmm0
+; AVX10_2-NEXT:    cmovnpl %ecx, %eax
+; AVX10_2-NEXT:    shrl $16, %eax
+; AVX10_2-NEXT:    vmovw %eax, %xmm0
+; AVX10_2-NEXT:    retq
   %cvt = sitofp i64 %a to bfloat
   ret bfloat %cvt
 }
@@ -30,7 +74,14 @@ define <8 x bfloat> @sitofp_v8i32_to_v8bf16(<8 x i32> %a) {
 ; CHECK-LABEL: sitofp_v8i32_to_v8bf16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vcvtdq2ps %ymm0, %ymm0
-; CHECK-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; CHECK-NEXT:    vpsrld $16, %ymm0, %ymm1
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; CHECK-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; CHECK-NEXT:    vpsrld $16, %ymm1, %ymm0
+; CHECK-NEXT:    vpmovdw %ymm0, %xmm0
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %cvt = sitofp <8 x i32> %a to <8 x bfloat>
@@ -42,7 +93,14 @@ define <4 x bfloat> @sitofp_v4i32_to_v4bf16(<4 x i32> %a) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 def $ymm0
 ; CHECK-NEXT:    vcvtdq2ps %ymm0, %ymm0
-; CHECK-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; CHECK-NEXT:    vpsrld $16, %ymm0, %ymm1
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; CHECK-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; CHECK-NEXT:    vpsrld $16, %ymm1, %ymm0
+; CHECK-NEXT:    vpmovdw %ymm0, %xmm0
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %cvt = sitofp <4 x i32> %a to <4 x bfloat>
@@ -54,7 +112,14 @@ define <2 x bfloat> @sitofp_v2i32_to_v2bf16(<2 x i32> %a) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 def $ymm0
 ; CHECK-NEXT:    vcvtdq2ps %ymm0, %ymm0
-; CHECK-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; CHECK-NEXT:    vpsrld $16, %ymm0, %ymm1
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; CHECK-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; CHECK-NEXT:    vpsrld $16, %ymm1, %ymm0
+; CHECK-NEXT:    vpmovdw %ymm0, %xmm0
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %cvt = sitofp <2 x i32> %a to <2 x bfloat>
@@ -65,7 +130,14 @@ define <16 x bfloat> @sitofp_v16i32_to_v16bf16(<16 x i32> %a) {
 ; CHECK-LABEL: sitofp_v16i32_to_v16bf16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vcvtdq2ps %zmm0, %zmm0
-; CHECK-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
+; CHECK-NEXT:    vpsrld $16, %zmm0, %zmm1
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm1, %zmm1
+; CHECK-NEXT:    vpaddd %zmm0, %zmm1, %zmm1
+; CHECK-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm1, %zmm1
+; CHECK-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; CHECK-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %zmm1 {%k1}
+; CHECK-NEXT:    vpsrld $16, %zmm1, %zmm0
+; CHECK-NEXT:    vpmovdw %zmm0, %ymm0
 ; CHECK-NEXT:    retq
   %cvt = sitofp <16 x i32> %a to <16 x bfloat>
   ret <16 x bfloat> %cvt
@@ -76,13 +148,25 @@ define <2 x bfloat> @sitofp_v2i64_to_v2bf16(<2 x i64> %a) {
 ; BF16:       # %bb.0:
 ; BF16-NEXT:    vpextrq $1, %xmm0, %rax
 ; BF16-NEXT:    vcvtsi2ss %rax, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %eax
+; BF16-NEXT:    btl $16, %eax
+; BF16-NEXT:    movl %eax, %ecx
+; BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %ecx, %eax
+; BF16-NEXT:    shrl $16, %eax
 ; BF16-NEXT:    vmovq %xmm0, %rcx
 ; BF16-NEXT:    vcvtsi2ss %rcx, %xmm15, %xmm0
-; BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; BF16-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; BF16-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3,4,5,6,7]
+; BF16-NEXT:    vmovd %xmm0, %ecx
+; BF16-NEXT:    btl $16, %ecx
+; BF16-NEXT:    movl %ecx, %edx
+; BF16-NEXT:    adcl $32767, %edx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %ecx # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm0, %xmm0
+; BF16-NEXT:    cmovnpl %edx, %ecx
+; BF16-NEXT:    vmovd %ecx, %xmm0
+; BF16-NEXT:    vpsrld $16, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $1, %eax, %xmm0, %xmm0
 ; BF16-NEXT:    retq
 ;
@@ -90,7 +174,14 @@ define <2 x bfloat> @sitofp_v2i64_to_v2bf16(<2 x i64> %a) {
 ; AVX10_2:       # %bb.0:
 ; AVX10_2-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; AVX10_2-NEXT:    vcvtqq2ps %zmm0, %ymm0
-; AVX10_2-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX10_2-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX10_2-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX10_2-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; AVX10_2-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX10_2-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX10_2-NEXT:    vzeroupper
 ; AVX10_2-NEXT:    retq
   %cvt = sitofp <2 x i64> %a to <2 x bfloat>
@@ -103,21 +194,45 @@ define <4 x bfloat> @sitofp_v4i64_to_v4bf16(<4 x i64> %a) {
 ; BF16-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; BF16-NEXT:    vpextrq $1, %xmm1, %rax
 ; BF16-NEXT:    vcvtsi2ss %rax, %xmm15, %xmm2
-; BF16-NEXT:    vcvtneps2bf16 %xmm2, %xmm2
 ; BF16-NEXT:    vmovd %xmm2, %eax
+; BF16-NEXT:    btl $16, %eax
+; BF16-NEXT:    movl %eax, %ecx
+; BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm2, %xmm2
+; BF16-NEXT:    cmovnpl %ecx, %eax
+; BF16-NEXT:    shrl $16, %eax
 ; BF16-NEXT:    vmovq %xmm1, %rcx
 ; BF16-NEXT:    vcvtsi2ss %rcx, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %ecx
+; BF16-NEXT:    btl $16, %ecx
+; BF16-NEXT:    movl %ecx, %edx
+; BF16-NEXT:    adcl $32767, %edx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %ecx # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %edx, %ecx
+; BF16-NEXT:    shrl $16, %ecx
 ; BF16-NEXT:    vpextrq $1, %xmm0, %rdx
 ; BF16-NEXT:    vcvtsi2ss %rdx, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %edx
+; BF16-NEXT:    btl $16, %edx
+; BF16-NEXT:    movl %edx, %esi
+; BF16-NEXT:    adcl $32767, %esi # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %edx # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %esi, %edx
+; BF16-NEXT:    shrl $16, %edx
 ; BF16-NEXT:    vmovq %xmm0, %rsi
 ; BF16-NEXT:    vcvtsi2ss %rsi, %xmm15, %xmm0
-; BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; BF16-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; BF16-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3,4,5,6,7]
+; BF16-NEXT:    vmovd %xmm0, %esi
+; BF16-NEXT:    btl $16, %esi
+; BF16-NEXT:    movl %esi, %edi
+; BF16-NEXT:    adcl $32767, %edi # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %esi # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm0, %xmm0
+; BF16-NEXT:    cmovnpl %edi, %esi
+; BF16-NEXT:    vmovd %esi, %xmm0
+; BF16-NEXT:    vpsrld $16, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $1, %edx, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $2, %ecx, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $3, %eax, %xmm0, %xmm0
@@ -128,7 +243,14 @@ define <4 x bfloat> @sitofp_v4i64_to_v4bf16(<4 x i64> %a) {
 ; AVX10_2:       # %bb.0:
 ; AVX10_2-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
 ; AVX10_2-NEXT:    vcvtqq2ps %zmm0, %ymm0
-; AVX10_2-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX10_2-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX10_2-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX10_2-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; AVX10_2-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX10_2-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX10_2-NEXT:    vzeroupper
 ; AVX10_2-NEXT:    retq
   %cvt = sitofp <4 x i64> %a to <4 x bfloat>
@@ -141,37 +263,88 @@ define <8 x bfloat> @sitofp_v8i64_to_v8bf16(<8 x i64> %a) {
 ; BF16-NEXT:    vextracti32x4 $3, %zmm0, %xmm1
 ; BF16-NEXT:    vpextrq $1, %xmm1, %rax
 ; BF16-NEXT:    vcvtsi2ss %rax, %xmm15, %xmm2
-; BF16-NEXT:    vcvtneps2bf16 %xmm2, %xmm2
 ; BF16-NEXT:    vmovd %xmm2, %eax
+; BF16-NEXT:    btl $16, %eax
+; BF16-NEXT:    movl %eax, %ecx
+; BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm2, %xmm2
+; BF16-NEXT:    cmovnpl %ecx, %eax
+; BF16-NEXT:    shrl $16, %eax
 ; BF16-NEXT:    vmovq %xmm1, %rcx
 ; BF16-NEXT:    vcvtsi2ss %rcx, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %ecx
+; BF16-NEXT:    btl $16, %ecx
+; BF16-NEXT:    movl %ecx, %edx
+; BF16-NEXT:    adcl $32767, %edx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %ecx # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %edx, %ecx
+; BF16-NEXT:    shrl $16, %ecx
 ; BF16-NEXT:    vextracti32x4 $2, %zmm0, %xmm1
 ; BF16-NEXT:    vpextrq $1, %xmm1, %rdx
 ; BF16-NEXT:    vcvtsi2ss %rdx, %xmm15, %xmm2
-; BF16-NEXT:    vcvtneps2bf16 %xmm2, %xmm2
 ; BF16-NEXT:    vmovd %xmm2, %edx
+; BF16-NEXT:    btl $16, %edx
+; BF16-NEXT:    movl %edx, %esi
+; BF16-NEXT:    adcl $32767, %esi # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %edx # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm2, %xmm2
+; BF16-NEXT:    cmovnpl %esi, %edx
+; BF16-NEXT:    shrl $16, %edx
 ; BF16-NEXT:    vmovq %xmm1, %rsi
 ; BF16-NEXT:    vcvtsi2ss %rsi, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %esi
+; BF16-NEXT:    btl $16, %esi
+; BF16-NEXT:    movl %esi, %edi
+; BF16-NEXT:    adcl $32767, %edi # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %esi # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %edi, %esi
+; BF16-NEXT:    shrl $16, %esi
 ; BF16-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; BF16-NEXT:    vpextrq $1, %xmm1, %rdi
 ; BF16-NEXT:    vcvtsi2ss %rdi, %xmm15, %xmm2
-; BF16-NEXT:    vcvtneps2bf16 %xmm2, %xmm2
 ; BF16-NEXT:    vmovd %xmm2, %edi
+; BF16-NEXT:    btl $16, %edi
+; BF16-NEXT:    movl %edi, %r8d
+; BF16-NEXT:    adcl $32767, %r8d # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %edi # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm2, %xmm2
+; BF16-NEXT:    cmovnpl %r8d, %edi
+; BF16-NEXT:    shrl $16, %edi
 ; BF16-NEXT:    vmovq %xmm1, %r8
 ; BF16-NEXT:    vcvtsi2ss %r8, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %r8d
+; BF16-NEXT:    btl $16, %r8d
+; BF16-NEXT:    movl %r8d, %r9d
+; BF16-NEXT:    adcl $32767, %r9d # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %r8d # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %r9d, %r8d
+; BF16-NEXT:    shrl $16, %r8d
 ; BF16-NEXT:    vpextrq $1, %xmm0, %r9
 ; BF16-NEXT:    vcvtsi2ss %r9, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
-; BF16-NEXT:    vmovq %xmm0, %r9
-; BF16-NEXT:    vcvtsi2ss %r9, %xmm15, %xmm0
-; BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; BF16-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
+; BF16-NEXT:    vmovd %xmm1, %r9d
+; BF16-NEXT:    btl $16, %r9d
+; BF16-NEXT:    movl %r9d, %r10d
+; BF16-NEXT:    adcl $32767, %r10d # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %r9d # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %r10d, %r9d
+; BF16-NEXT:    shrl $16, %r9d
+; BF16-NEXT:    vmovq %xmm0, %r10
+; BF16-NEXT:    vcvtsi2ss %r10, %xmm15, %xmm0
+; BF16-NEXT:    vmovd %xmm0, %r10d
+; BF16-NEXT:    btl $16, %r10d
+; BF16-NEXT:    movl %r10d, %r11d
+; BF16-NEXT:    adcl $32767, %r11d # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %r10d # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm0, %xmm0
+; BF16-NEXT:    cmovnpl %r11d, %r10d
+; BF16-NEXT:    vmovd %r10d, %xmm0
+; BF16-NEXT:    vpsrld $16, %xmm0, %xmm0
+; BF16-NEXT:    vpinsrw $1, %r9d, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $2, %r8d, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $3, %edi, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $4, %esi, %xmm0, %xmm0
@@ -184,7 +357,14 @@ define <8 x bfloat> @sitofp_v8i64_to_v8bf16(<8 x i64> %a) {
 ; AVX10_2-LABEL: sitofp_v8i64_to_v8bf16:
 ; AVX10_2:       # %bb.0:
 ; AVX10_2-NEXT:    vcvtqq2ps %zmm0, %ymm0
-; AVX10_2-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX10_2-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX10_2-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX10_2-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; AVX10_2-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX10_2-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX10_2-NEXT:    vzeroupper
 ; AVX10_2-NEXT:    retq
   %cvt = sitofp <8 x i64> %a to <8 x bfloat>
@@ -196,21 +376,65 @@ define <8 x bfloat> @sitofp_v8i64_to_v8bf16(<8 x i64> %a) {
 ;
 
 define bfloat @uitofp_i32_to_bf16(i32 %a) {
-; CHECK-LABEL: uitofp_i32_to_bf16:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtusi2ss %edi, %xmm15, %xmm0
-; CHECK-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; CHECK-NEXT:    retq
+; BF16-LABEL: uitofp_i32_to_bf16:
+; BF16:       # %bb.0:
+; BF16-NEXT:    vcvtusi2ss %edi, %xmm15, %xmm0
+; BF16-NEXT:    vmovd %xmm0, %eax
+; BF16-NEXT:    btl $16, %eax
+; BF16-NEXT:    movl %eax, %ecx
+; BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm0, %xmm0
+; BF16-NEXT:    cmovnpl %ecx, %eax
+; BF16-NEXT:    shrl $16, %eax
+; BF16-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
+; BF16-NEXT:    retq
+;
+; AVX10_2-LABEL: uitofp_i32_to_bf16:
+; AVX10_2:       # %bb.0:
+; AVX10_2-NEXT:    vcvtusi2ss %edi, %xmm15, %xmm0
+; AVX10_2-NEXT:    vmovd %xmm0, %eax
+; AVX10_2-NEXT:    btl $16, %eax
+; AVX10_2-NEXT:    movl %eax, %ecx
+; AVX10_2-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX10_2-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX10_2-NEXT:    vucomiss %xmm0, %xmm0
+; AVX10_2-NEXT:    cmovnpl %ecx, %eax
+; AVX10_2-NEXT:    shrl $16, %eax
+; AVX10_2-NEXT:    vmovw %eax, %xmm0
+; AVX10_2-NEXT:    retq
   %cvt = uitofp i32 %a to bfloat
   ret bfloat %cvt
 }
 
 define bfloat @uitofp_i64_to_bf16(i64 %a) {
-; CHECK-LABEL: uitofp_i64_to_bf16:
-; CHECK:       # %bb.0:
-; CHECK-NEXT:    vcvtusi2ss %rdi, %xmm15, %xmm0
-; CHECK-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; CHECK-NEXT:    retq
+; BF16-LABEL: uitofp_i64_to_bf16:
+; BF16:       # %bb.0:
+; BF16-NEXT:    vcvtusi2ss %rdi, %xmm15, %xmm0
+; BF16-NEXT:    vmovd %xmm0, %eax
+; BF16-NEXT:    btl $16, %eax
+; BF16-NEXT:    movl %eax, %ecx
+; BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm0, %xmm0
+; BF16-NEXT:    cmovnpl %ecx, %eax
+; BF16-NEXT:    shrl $16, %eax
+; BF16-NEXT:    vpinsrw $0, %eax, %xmm0, %xmm0
+; BF16-NEXT:    retq
+;
+; AVX10_2-LABEL: uitofp_i64_to_bf16:
+; AVX10_2:       # %bb.0:
+; AVX10_2-NEXT:    vcvtusi2ss %rdi, %xmm15, %xmm0
+; AVX10_2-NEXT:    vmovd %xmm0, %eax
+; AVX10_2-NEXT:    btl $16, %eax
+; AVX10_2-NEXT:    movl %eax, %ecx
+; AVX10_2-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; AVX10_2-NEXT:    orl $4194304, %eax # imm = 0x400000
+; AVX10_2-NEXT:    vucomiss %xmm0, %xmm0
+; AVX10_2-NEXT:    cmovnpl %ecx, %eax
+; AVX10_2-NEXT:    shrl $16, %eax
+; AVX10_2-NEXT:    vmovw %eax, %xmm0
+; AVX10_2-NEXT:    retq
   %cvt = uitofp i64 %a to bfloat
   ret bfloat %cvt
 }
@@ -219,7 +443,14 @@ define <8 x bfloat> @uitofp_v8i32_to_v8bf16(<8 x i32> %a) {
 ; CHECK-LABEL: uitofp_v8i32_to_v8bf16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vcvtudq2ps %ymm0, %ymm0
-; CHECK-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; CHECK-NEXT:    vpsrld $16, %ymm0, %ymm1
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; CHECK-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; CHECK-NEXT:    vpsrld $16, %ymm1, %ymm0
+; CHECK-NEXT:    vpmovdw %ymm0, %xmm0
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %cvt = uitofp <8 x i32> %a to <8 x bfloat>
@@ -231,7 +462,14 @@ define <4 x bfloat> @uitofp_v4i32_to_v4bf16(<4 x i32> %a) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 def $ymm0
 ; CHECK-NEXT:    vcvtudq2ps %ymm0, %ymm0
-; CHECK-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; CHECK-NEXT:    vpsrld $16, %ymm0, %ymm1
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; CHECK-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; CHECK-NEXT:    vpsrld $16, %ymm1, %ymm0
+; CHECK-NEXT:    vpmovdw %ymm0, %xmm0
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %cvt = uitofp <4 x i32> %a to <4 x bfloat>
@@ -243,7 +481,14 @@ define <2 x bfloat> @uitofp_v2i32_to_v2bf16(<2 x i32> %a) {
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    # kill: def $xmm0 killed $xmm0 def $ymm0
 ; CHECK-NEXT:    vcvtudq2ps %ymm0, %ymm0
-; CHECK-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; CHECK-NEXT:    vpsrld $16, %ymm0, %ymm1
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; CHECK-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; CHECK-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; CHECK-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; CHECK-NEXT:    vpsrld $16, %ymm1, %ymm0
+; CHECK-NEXT:    vpmovdw %ymm0, %xmm0
 ; CHECK-NEXT:    vzeroupper
 ; CHECK-NEXT:    retq
   %cvt = uitofp <2 x i32> %a to <2 x bfloat>
@@ -254,7 +499,14 @@ define <16 x bfloat> @uitofp_v16i32_to_v16bf16(<16 x i32> %a) {
 ; CHECK-LABEL: uitofp_v16i32_to_v16bf16:
 ; CHECK:       # %bb.0:
 ; CHECK-NEXT:    vcvtudq2ps %zmm0, %zmm0
-; CHECK-NEXT:    vcvtneps2bf16 %zmm0, %ymm0
+; CHECK-NEXT:    vpsrld $16, %zmm0, %zmm1
+; CHECK-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm1, %zmm1
+; CHECK-NEXT:    vpaddd %zmm0, %zmm1, %zmm1
+; CHECK-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm1, %zmm1
+; CHECK-NEXT:    vcmpunordps %zmm0, %zmm0, %k1
+; CHECK-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to16}, %zmm0, %zmm1 {%k1}
+; CHECK-NEXT:    vpsrld $16, %zmm1, %zmm0
+; CHECK-NEXT:    vpmovdw %zmm0, %ymm0
 ; CHECK-NEXT:    retq
   %cvt = uitofp <16 x i32> %a to <16 x bfloat>
   ret <16 x bfloat> %cvt
@@ -265,13 +517,25 @@ define <2 x bfloat> @uitofp_v2i64_to_v2bf16(<2 x i64> %a) {
 ; BF16:       # %bb.0:
 ; BF16-NEXT:    vpextrq $1, %xmm0, %rax
 ; BF16-NEXT:    vcvtusi2ss %rax, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %eax
+; BF16-NEXT:    btl $16, %eax
+; BF16-NEXT:    movl %eax, %ecx
+; BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %ecx, %eax
+; BF16-NEXT:    shrl $16, %eax
 ; BF16-NEXT:    vmovq %xmm0, %rcx
 ; BF16-NEXT:    vcvtusi2ss %rcx, %xmm15, %xmm0
-; BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; BF16-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; BF16-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3,4,5,6,7]
+; BF16-NEXT:    vmovd %xmm0, %ecx
+; BF16-NEXT:    btl $16, %ecx
+; BF16-NEXT:    movl %ecx, %edx
+; BF16-NEXT:    adcl $32767, %edx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %ecx # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm0, %xmm0
+; BF16-NEXT:    cmovnpl %edx, %ecx
+; BF16-NEXT:    vmovd %ecx, %xmm0
+; BF16-NEXT:    vpsrld $16, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $1, %eax, %xmm0, %xmm0
 ; BF16-NEXT:    retq
 ;
@@ -279,7 +543,14 @@ define <2 x bfloat> @uitofp_v2i64_to_v2bf16(<2 x i64> %a) {
 ; AVX10_2:       # %bb.0:
 ; AVX10_2-NEXT:    # kill: def $xmm0 killed $xmm0 def $zmm0
 ; AVX10_2-NEXT:    vcvtuqq2ps %zmm0, %ymm0
-; AVX10_2-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX10_2-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX10_2-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX10_2-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; AVX10_2-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX10_2-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX10_2-NEXT:    vzeroupper
 ; AVX10_2-NEXT:    retq
   %cvt = uitofp <2 x i64> %a to <2 x bfloat>
@@ -292,21 +563,45 @@ define <4 x bfloat> @uitofp_v4i64_to_v4bf16(<4 x i64> %a) {
 ; BF16-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; BF16-NEXT:    vpextrq $1, %xmm1, %rax
 ; BF16-NEXT:    vcvtusi2ss %rax, %xmm15, %xmm2
-; BF16-NEXT:    vcvtneps2bf16 %xmm2, %xmm2
 ; BF16-NEXT:    vmovd %xmm2, %eax
+; BF16-NEXT:    btl $16, %eax
+; BF16-NEXT:    movl %eax, %ecx
+; BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm2, %xmm2
+; BF16-NEXT:    cmovnpl %ecx, %eax
+; BF16-NEXT:    shrl $16, %eax
 ; BF16-NEXT:    vmovq %xmm1, %rcx
 ; BF16-NEXT:    vcvtusi2ss %rcx, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %ecx
+; BF16-NEXT:    btl $16, %ecx
+; BF16-NEXT:    movl %ecx, %edx
+; BF16-NEXT:    adcl $32767, %edx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %ecx # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %edx, %ecx
+; BF16-NEXT:    shrl $16, %ecx
 ; BF16-NEXT:    vpextrq $1, %xmm0, %rdx
 ; BF16-NEXT:    vcvtusi2ss %rdx, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %edx
+; BF16-NEXT:    btl $16, %edx
+; BF16-NEXT:    movl %edx, %esi
+; BF16-NEXT:    adcl $32767, %esi # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %edx # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %esi, %edx
+; BF16-NEXT:    shrl $16, %edx
 ; BF16-NEXT:    vmovq %xmm0, %rsi
 ; BF16-NEXT:    vcvtusi2ss %rsi, %xmm15, %xmm0
-; BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; BF16-NEXT:    vpxor %xmm1, %xmm1, %xmm1
-; BF16-NEXT:    vpblendw {{.*#+}} xmm0 = xmm0[0],xmm1[1,2,3,4,5,6,7]
+; BF16-NEXT:    vmovd %xmm0, %esi
+; BF16-NEXT:    btl $16, %esi
+; BF16-NEXT:    movl %esi, %edi
+; BF16-NEXT:    adcl $32767, %edi # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %esi # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm0, %xmm0
+; BF16-NEXT:    cmovnpl %edi, %esi
+; BF16-NEXT:    vmovd %esi, %xmm0
+; BF16-NEXT:    vpsrld $16, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $1, %edx, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $2, %ecx, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $3, %eax, %xmm0, %xmm0
@@ -317,7 +612,14 @@ define <4 x bfloat> @uitofp_v4i64_to_v4bf16(<4 x i64> %a) {
 ; AVX10_2:       # %bb.0:
 ; AVX10_2-NEXT:    # kill: def $ymm0 killed $ymm0 def $zmm0
 ; AVX10_2-NEXT:    vcvtuqq2ps %zmm0, %ymm0
-; AVX10_2-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX10_2-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX10_2-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX10_2-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; AVX10_2-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX10_2-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX10_2-NEXT:    vzeroupper
 ; AVX10_2-NEXT:    retq
   %cvt = uitofp <4 x i64> %a to <4 x bfloat>
@@ -330,37 +632,88 @@ define <8 x bfloat> @uitofp_v8i64_to_v8bf16(<8 x i64> %a) {
 ; BF16-NEXT:    vextracti32x4 $3, %zmm0, %xmm1
 ; BF16-NEXT:    vpextrq $1, %xmm1, %rax
 ; BF16-NEXT:    vcvtusi2ss %rax, %xmm15, %xmm2
-; BF16-NEXT:    vcvtneps2bf16 %xmm2, %xmm2
 ; BF16-NEXT:    vmovd %xmm2, %eax
+; BF16-NEXT:    btl $16, %eax
+; BF16-NEXT:    movl %eax, %ecx
+; BF16-NEXT:    adcl $32767, %ecx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %eax # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm2, %xmm2
+; BF16-NEXT:    cmovnpl %ecx, %eax
+; BF16-NEXT:    shrl $16, %eax
 ; BF16-NEXT:    vmovq %xmm1, %rcx
 ; BF16-NEXT:    vcvtusi2ss %rcx, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %ecx
+; BF16-NEXT:    btl $16, %ecx
+; BF16-NEXT:    movl %ecx, %edx
+; BF16-NEXT:    adcl $32767, %edx # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %ecx # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %edx, %ecx
+; BF16-NEXT:    shrl $16, %ecx
 ; BF16-NEXT:    vextracti32x4 $2, %zmm0, %xmm1
 ; BF16-NEXT:    vpextrq $1, %xmm1, %rdx
 ; BF16-NEXT:    vcvtusi2ss %rdx, %xmm15, %xmm2
-; BF16-NEXT:    vcvtneps2bf16 %xmm2, %xmm2
 ; BF16-NEXT:    vmovd %xmm2, %edx
+; BF16-NEXT:    btl $16, %edx
+; BF16-NEXT:    movl %edx, %esi
+; BF16-NEXT:    adcl $32767, %esi # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %edx # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm2, %xmm2
+; BF16-NEXT:    cmovnpl %esi, %edx
+; BF16-NEXT:    shrl $16, %edx
 ; BF16-NEXT:    vmovq %xmm1, %rsi
 ; BF16-NEXT:    vcvtusi2ss %rsi, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %esi
+; BF16-NEXT:    btl $16, %esi
+; BF16-NEXT:    movl %esi, %edi
+; BF16-NEXT:    adcl $32767, %edi # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %esi # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %edi, %esi
+; BF16-NEXT:    shrl $16, %esi
 ; BF16-NEXT:    vextracti128 $1, %ymm0, %xmm1
 ; BF16-NEXT:    vpextrq $1, %xmm1, %rdi
 ; BF16-NEXT:    vcvtusi2ss %rdi, %xmm15, %xmm2
-; BF16-NEXT:    vcvtneps2bf16 %xmm2, %xmm2
 ; BF16-NEXT:    vmovd %xmm2, %edi
+; BF16-NEXT:    btl $16, %edi
+; BF16-NEXT:    movl %edi, %r8d
+; BF16-NEXT:    adcl $32767, %r8d # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %edi # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm2, %xmm2
+; BF16-NEXT:    cmovnpl %r8d, %edi
+; BF16-NEXT:    shrl $16, %edi
 ; BF16-NEXT:    vmovq %xmm1, %r8
 ; BF16-NEXT:    vcvtusi2ss %r8, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
 ; BF16-NEXT:    vmovd %xmm1, %r8d
+; BF16-NEXT:    btl $16, %r8d
+; BF16-NEXT:    movl %r8d, %r9d
+; BF16-NEXT:    adcl $32767, %r9d # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %r8d # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %r9d, %r8d
+; BF16-NEXT:    shrl $16, %r8d
 ; BF16-NEXT:    vpextrq $1, %xmm0, %r9
 ; BF16-NEXT:    vcvtusi2ss %r9, %xmm15, %xmm1
-; BF16-NEXT:    vcvtneps2bf16 %xmm1, %xmm1
-; BF16-NEXT:    vmovq %xmm0, %r9
-; BF16-NEXT:    vcvtusi2ss %r9, %xmm15, %xmm0
-; BF16-NEXT:    vcvtneps2bf16 %xmm0, %xmm0
-; BF16-NEXT:    vpunpcklwd {{.*#+}} xmm0 = xmm0[0],xmm1[0],xmm0[1],xmm1[1],xmm0[2],xmm1[2],xmm0[3],xmm1[3]
+; BF16-NEXT:    vmovd %xmm1, %r9d
+; BF16-NEXT:    btl $16, %r9d
+; BF16-NEXT:    movl %r9d, %r10d
+; BF16-NEXT:    adcl $32767, %r10d # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %r9d # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm1, %xmm1
+; BF16-NEXT:    cmovnpl %r10d, %r9d
+; BF16-NEXT:    shrl $16, %r9d
+; BF16-NEXT:    vmovq %xmm0, %r10
+; BF16-NEXT:    vcvtusi2ss %r10, %xmm15, %xmm0
+; BF16-NEXT:    vmovd %xmm0, %r10d
+; BF16-NEXT:    btl $16, %r10d
+; BF16-NEXT:    movl %r10d, %r11d
+; BF16-NEXT:    adcl $32767, %r11d # imm = 0x7FFF
+; BF16-NEXT:    orl $4194304, %r10d # imm = 0x400000
+; BF16-NEXT:    vucomiss %xmm0, %xmm0
+; BF16-NEXT:    cmovnpl %r11d, %r10d
+; BF16-NEXT:    vmovd %r10d, %xmm0
+; BF16-NEXT:    vpsrld $16, %xmm0, %xmm0
+; BF16-NEXT:    vpinsrw $1, %r9d, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $2, %r8d, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $3, %edi, %xmm0, %xmm0
 ; BF16-NEXT:    vpinsrw $4, %esi, %xmm0, %xmm0
@@ -373,7 +726,14 @@ define <8 x bfloat> @uitofp_v8i64_to_v8bf16(<8 x i64> %a) {
 ; AVX10_2-LABEL: uitofp_v8i64_to_v8bf16:
 ; AVX10_2:       # %bb.0:
 ; AVX10_2-NEXT:    vcvtuqq2ps %zmm0, %ymm0
-; AVX10_2-NEXT:    vcvtneps2bf16 %ymm0, %xmm0
+; AVX10_2-NEXT:    vpsrld $16, %ymm0, %ymm1
+; AVX10_2-NEXT:    vpandd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd %ymm0, %ymm1, %ymm1
+; AVX10_2-NEXT:    vpaddd {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm1, %ymm1
+; AVX10_2-NEXT:    vcmpunordps %ymm0, %ymm0, %k1
+; AVX10_2-NEXT:    vpord {{\.?LCPI[0-9]+_[0-9]+}}(%rip){1to8}, %ymm0, %ymm1 {%k1}
+; AVX10_2-NEXT:    vpsrld $16, %ymm1, %ymm0
+; AVX10_2-NEXT:    vpmovdw %ymm0, %xmm0
 ; AVX10_2-NEXT:    vzeroupper
 ; AVX10_2-NEXT:    retq
   %cvt = uitofp <8 x i64> %a to <8 x bfloat>

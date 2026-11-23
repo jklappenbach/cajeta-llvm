@@ -40658,6 +40658,11 @@ static bool matchBinaryShuffle(MVT MaskVT, ArrayRef<int> Mask,
       IsBlend = false;
       break;
     }
+    // OR reads the lanes the blend skipped, so they must not be poison.
+    if (IsBlend &&
+        (!DAG.isGuaranteedNotToBeUndefOrPoison(V1, DemandedZeroV1) ||
+         !DAG.isGuaranteedNotToBeUndefOrPoison(V2, DemandedZeroV2)))
+      IsBlend = false;
     if (IsBlend) {
       if (DAG.MaskedVectorIsZero(V1, DemandedZeroV1) &&
           DAG.MaskedVectorIsZero(V2, DemandedZeroV2)) {

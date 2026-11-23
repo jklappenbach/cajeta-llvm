@@ -2035,10 +2035,10 @@ define void @pr63114() {
 ; BWON-F16C-NEXT:    vpsllq $48, %xmm3, %xmm4
 ; BWON-F16C-NEXT:    vpblendw {{.*#+}} xmm2 = xmm2[0,1,2],xmm4[3],xmm2[4,5,6,7]
 ; BWON-F16C-NEXT:    vpslldq {{.*#+}} xmm3 = zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,zero,xmm3[0,1]
-; BWON-F16C-NEXT:    vpor %xmm3, %xmm2, %xmm2
+; BWON-F16C-NEXT:    vpblendw {{.*#+}} xmm2 = xmm2[0,1,2,3,4,5,6],xmm3[7]
 ; BWON-F16C-NEXT:    vshufps {{.*#+}} xmm1 = xmm0[0,3],xmm1[2,0]
 ; BWON-F16C-NEXT:    vpblendw {{.*#+}} xmm1 = xmm1[0,1,2],xmm4[3],xmm1[4,5,6,7]
-; BWON-F16C-NEXT:    vpor %xmm3, %xmm1, %xmm1
+; BWON-F16C-NEXT:    vpblendw {{.*#+}} xmm1 = xmm1[0,1,2,3,4,5,6],xmm3[7]
 ; BWON-F16C-NEXT:    vinsertf128 $1, %xmm2, %ymm1, %ymm1
 ; BWON-F16C-NEXT:    vpshuflw {{.*#+}} xmm2 = xmm0[0,1,3,3,4,5,6,7]
 ; BWON-F16C-NEXT:    vpshufd {{.*#+}} xmm2 = xmm2[0,0,2,1]
